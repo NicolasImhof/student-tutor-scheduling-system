@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+            <div class="dashboard-content-area">
+                <section id="approve-accounts" class="dashboard-section">
+                    <h2>Approve New Accounts</h2>
+                    <!-- Account approval list will go here -->
+                </section>
+                <section id="manage-users" class="dashboard-section hidden">
+                    <h2>Manage Users</h2>
+                    <!-- User management UI will go here -->
+                </section>
+                <section id="schedule-rules" class="dashboard-section hidden">
+                    <h2>Set Schedule Rules</h2>
+                    <p>Click a date on the calendar to mark it as a holiday.</p>
+                </section>
+            </div>
+            <div class="calendar-container">
+                <!-- Calendar will be dynamically generated here -->
+            </div>
+            
+            <!-- Calendar Features - Hidden by default, shown when date is selected -->
+            <div id="admin-holiday-feature" class="calendar-feature hidden">
+                <div class="feature-header">
+                    <h3>Manage Holiday</h3>
+                    <span class="selected-date"></span>
+                </div>
+                <div class="feature-content">
+                    <p>Manage this date as a system-wide holiday:</p>
+                    <div class="holiday-form">
+                        <div class="form-group">
+                            <label for="holiday-name">Holiday Name:</label>
+                            <input type="text" id="holiday-name" placeholder="e.g., Christmas, New Year's Day">
+                        </div>
+                        <div class="form-group">
+                            <label for="holiday-description">Description:</label>
+                            <textarea id="holiday-description" placeholder="Optional description..."></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label for="holiday-type">Holiday Type:</label>
+                            <select id="holiday-type" class="holiday-type-select">
+                                <option value="public">Public Holiday</option>
+                                <option value="institutional">Institutional Holiday</option>
+                                <option value="custom">Custom Holiday</option>
+                            </select>
+                        </div>
+                        <div class="form-actions">
+                            <button id="mark-holiday" class="primary-button holiday-button">Mark as Holiday</button>
+                            <button id="remove-holiday" class="secondary-button remove-button">Remove Holiday</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

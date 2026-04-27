@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tutor Dashboard</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+            <div class="dashboard-content-area">
+                <section id="my-availability" class="dashboard-section">
+                    <h2>My Availability</h2>
+                    <p>Click a date on the calendar to set your available time slots.</p>
+                </section>
+                <section id="appointments" class="dashboard-section hidden">
+                    <h2>Appointments</h2>
+                    <div class="appointment-list"></div>
+                </section>
+                <section id="my-profile" class="dashboard-section hidden">
+                    <h2>My Profile</h2>
+                    <form class="profile-form">
+                        <label for="tutor-name">Name:</label>
+                        <input type="text" id="tutor-name" value="Jane Smith">
+                        <label for="tutor-email">Email:</label>
+                        <input type="email" id="tutor-email" value="tutor@example.com" readonly>
+                        <button type="submit">Update Profile</button>
+                    </form>
+                </section>
+            </div>
+            <div class="calendar-container">
+                <!-- Calendar will be dynamically generated here -->
+            </div>
+            
+            <!-- Calendar Features - Hidden by default, shown when date is selected -->
+            <div id="tutor-availability-feature" class="calendar-feature hidden">
+                <div class="feature-header">
+                    <h3>Manage Availability</h3>
+                    <span class="selected-date"></span>
+                </div>
+                <div class="feature-content">
+                    <p>Set your availability for this date:</p>
+                    <div class="availability-form">
+                        <div class="time-slots">
+                            <label class="time-slot-label">
+                                <input type="checkbox" class="availability-slot" data-time="09:00">
+                                <span class="time-slot">9:00 AM - 10:00 AM</span>
+                            </label>
+                            <label class="time-slot-label">
+                                <input type="checkbox" class="availability-slot" data-time="10:00">
+                                <span class="time-slot">10:00 AM - 11:00 AM</span>
+                            </label>
+                            <label class="time-slot-label">
+                                <input type="checkbox" class="availability-slot" data-time="11:00">
+                                <span class="time-slot">11:00 AM - 12:00 PM</span>
+                            </label>
+                            <label class="time-slot-label">
+                                <input type="checkbox" class="availability-slot" data-time="14:00">
+                                <span class="time-slot">2:00 PM - 3:00 PM</span>
+                            </label>
+                            <label class="time-slot-label">
+                                <input type="checkbox" class="availability-slot" data-time="15:00">
+                                <span class="time-slot">3:00 PM - 4:00 PM</span>
+                            </label>
+                            <label class="time-slot-label">
+                                <input type="checkbox" class="availability-slot" data-time="16:00">
+                                <span class="time-slot">4:00 PM - 5:00 PM</span>
+                            </label>
+                        </div>
+                        <div class="availability-status">
+                            <label for="day-status">Day Status:</label>
+                            <select id="day-status" class="day-status-select">
+                                <option value="available">Available</option>
+                                <option value="busy">Busy (fully booked)</option>
+                                <option value="holiday">Holiday/Unavailable</option>
+                            </select>
+                        </div>
+                        <button id="save-availability" class="primary-button">Save Availability</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

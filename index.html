@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Student-to-Tutor Scheduling</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+</head>
+<body>
+    <header>
+        <h1>Student-to-Tutor Scheduling</h1>
+        <nav id="main-nav">
+            <a href="#" id="home-link">Home</a>
+            <a href="#" id="login-link">Login</a>
+            <a href="#" id="logout-link" class="hidden">Logout</a>
+        </nav>
+    </header>
+    <div id="dashboard-nav-container" class="hidden">
+        <h2 id="dashboard-title"></h2>
+        <nav id="dashboard-nav"></nav>
+        <a href="#" id="dashboard-logout-link">Logout</a>
+    </div>
+    <main>
+        <div id="home-content">
+            <h2>Welcome to the Tutoring Scheduler</h2>
+            <p>Find a tutor, schedule a session, and get the help you need.</p>
+        </div>
+        <div id="login-content" class="hidden">
+            <form id="login-form">
+                <h3>Login</h3>
+                <label for="email">Email:</label>
+                <input type="email" id="email" name="email" required>
+                <label for="password">Password:</label>
+                <input type="password" id="password" name="password" required>
+                <button type="submit">Login</button>
+            </form>
+            <div id="demo-credentials">
+                <h4>Demo Credentials</h4>
+                <p><strong>Student:</strong> student@example.com / password123</p>
+                <p><strong>Tutor:</strong> tutor@example.com / password123</p>
+                <p><strong>Admin:</strong> admin@example.com / password123</p>
+                <p><strong>Super Admin:</strong> superadmin@example.com / password123</p>
+            </div>
+        </div>
+        <div id="dashboard-content" class="hidden">
+            <!-- Role-specific dashboard content will be loaded here -->
+        </div>
+
+        <!-- Modal removed - using integrated calendar functionality -->
+    </main>
+    <footer>
+        <p>&copy; 2026 Student-to-Tutor Scheduling</p>
+    </footer>
+    <script src="data.js"></script>
+    <script src="calendar.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>

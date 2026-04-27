@@ -1,0 +1,32 @@
+{
+  "name": "student-tutor-scheduling-supabase",
+  "version": "2.0.0",
+  "description": "Student-to-Tutor Scheduling System with Supabase Backend",
+  "main": "server-supabase.js",
+  "scripts": {
+    "start": "node server-supabase.js",
+    "dev": "nodemon server-supabase.js",
+    "deploy": "npm run setup-supabase && npm start",
+    "setup-supabase": "node setup-supabase.js"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.39.0",
+    "bcryptjs": "^2.4.3",
+    "cors": "^2.8.5",
+    "dotenv": "^16.3.1",
+    "express": "^4.18.2",
+    "jsonwebtoken": "^9.0.2"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.2"
+  },
+  "keywords": [
+    "scheduling",
+    "tutoring",
+    "supabase",
+    "postgresql",
+    "calendar"
+  ],
+  "author": "Your Name",
+  "license": "MIT"
+}

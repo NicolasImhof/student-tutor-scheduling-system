@@ -1,0 +1,590 @@
+/* General styles */
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+    background-color: #f4f7f6;
+}
+
+header {
+    background-color: #ffffff;
+    color: #333;
+    padding: 1rem 2rem;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 1000;
+}
+
+header h1 {
+    margin: 0;
+    font-size: 1.5rem;
+}
+
+.dashboard-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem 2rem;
+    background-color: #ffffff;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    margin-bottom: 1rem;
+}
+
+.dashboard-header h1 {
+    margin: 0;
+    font-size: 1.5rem;
+}
+
+nav a:hover {
+    color: #007bff;
+}
+
+
+
+#dashboard-nav {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 1rem;
+    justify-content: center;
+    border-bottom: 2px solid #e9ecef;
+    padding-bottom: 1rem;
+}
+
+#dashboard-nav .nav-link {
+    padding: 0.75rem 1.5rem;
+    border-radius: 6px;
+    text-decoration: none;
+    color: #555;
+    font-weight: 500;
+    transition: all 0.2s ease;
+}
+
+#dashboard-nav .nav-link:hover {
+    background-color: #f0f0f0;
+    color: #007bff;
+}
+
+#dashboard-nav-container {
+    background-color: #f8f9fa;
+    padding: 2rem 1rem;
+    border-right: 2px solid #e9ecef;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    position: fixed;
+    top: 60px; /* Adjust based on header height */
+    left: 0;
+    height: calc(100vh - 60px);
+    width: 240px;
+    z-index: 999;
+}
+
+#dashboard-nav {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+#dashboard-nav .nav-link {
+    padding: 0.75rem 1rem;
+    border-radius: 6px;
+    text-decoration: none;
+    color: #555;
+    font-weight: 500;
+    transition: all 0.2s ease;
+}
+
+#dashboard-nav .nav-link:hover {
+    background-color: #f0f0f0;
+    color: #007bff;
+}
+
+#dashboard-nav .nav-link.active {
+    background-color: #007bff;
+    color: white;
+}
+
+#dashboard-nav-container h2 {
+    margin: 0;
+    font-size: 1.3rem;
+    color: #333;
+}
+
+#dashboard-nav-container a {
+    background-color: #dc3545;
+    color: white;
+    padding: 0.5rem 1rem;
+    border-radius: 4px;
+    text-decoration: none;
+    transition: background-color 0.2s ease;
+}
+
+#dashboard-nav-container a:hover {
+    background-color: #c82333;
+    color: white;
+}
+
+#dashboard-logout-link {
+    background-color: #dc3545;
+    color: white;
+    padding: 0.5rem 1rem;
+    border-radius: 4px;
+    text-decoration: none;
+    transition: background-color 0.2s ease;
+}
+
+#dashboard-logout-link:hover {
+    background-color: #c82333;
+    color: white;
+}
+
+
+
+.calendar-container {
+    width: 100%;
+    max-width: 600px;
+    padding: 1.5rem;
+    background-color: #f9f9f9;
+    border-radius: 12px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    margin: 2rem auto;
+    overflow-y: auto;
+}
+
+.dashboard-content-area {
+    flex: 1;
+    padding: 2rem;
+    overflow-y: auto;
+    position: relative;
+}
+
+#login-content {
+    background-color: #ffffff;
+    padding: 2rem;
+    border-radius: 8px;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    width: 100%;
+    max-width: 400px;
+}
+
+#login-form h3 {
+    margin-top: 0;
+    margin-bottom: 1.5rem;
+}
+
+#login-form label {
+    display: block;
+    text-align: left;
+    margin-bottom: .5rem;
+    font-weight: 500;
+}
+
+#login-form input {
+    width: 100%;
+    padding: .75rem;
+    margin-bottom: 1rem;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    box-sizing: border-box; /* Important */
+}
+
+#login-form button {
+    width: 100%;
+    padding: .75rem;
+    background-color: #007bff;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 1rem;
+}
+
+#login-form button:hover {
+    background-color: #0056b3;
+}
+
+#demo-credentials {
+    margin-top: 2rem;
+    padding-top: 1rem;
+    border-top: 1px solid #eee;
+}
+
+#demo-credentials h4 {
+    margin-bottom: 1rem;
+}
+
+#demo-credentials p {
+    margin: 0.5rem 0;
+    font-size: 0.9rem;
+    color: #555;
+}
+
+
+footer {
+    background-color: #ffffff;
+    color: #555;
+    padding: 1rem;
+    text-align: center;
+    box-shadow: 0 -2px 4px rgba(0,0,0,0.1);
+}
+
+.hidden {
+    display: none;
+}
+
+.calendar-container {
+    width: 100%;
+    max-width: 600px;
+    margin: 2rem auto;
+    padding: 1.5rem;
+    background-color: #f9f9f9;
+    border-radius: 12px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    overflow-y: auto;
+    position: relative;
+}
+
+.calendar-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+    font-size: 1rem;
+}
+
+.calendar-header h2 {
+    font-size: 1.2rem;
+    margin: 0;
+}
+
+.calendar-header button {
+    padding: 0.4rem 0.8rem;
+    font-size: 0.9rem;
+    background-color: #007bff;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.calendar-header button:hover {
+    background-color: #0056b3;
+}
+
+.calendar-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 4px;
+    justify-content: center;
+    margin: 0 auto;
+}
+
+.calendar-day {
+    text-align: center;
+    padding: 0;
+    border-radius: 8px;
+    font-size: 1rem;
+    font-weight: 500;
+    width: 45px;
+    height: 45px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border: 2px solid transparent;
+    margin: 2px;
+}
+
+.calendar-day:hover {
+    transform: scale(1.05);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+}
+
+.current-day {
+    background-color: #e0e0e0;
+    border: 3px solid #007bff;
+    font-weight: bold;
+}
+
+.day-name {
+    font-weight: bold;
+    font-size: 0.9rem;
+    padding: 0.5rem;
+    text-align: center;
+    background-color: #f0f0f0;
+    border-radius: 4px;
+}
+
+/* Weekend highlighting - yellow */
+.calendar-day.weekend {
+    background-color: #fff3cd;
+    border-color: #ffc107;
+}
+
+/* Available days with tutor - blue */
+.calendar-day.available {
+    background-color: #cce5ff;
+    border-color: #007bff;
+    cursor: pointer;
+}
+
+/* Busy days (tutor available but busy) - green */
+.calendar-day.busy {
+    background-color: #d4edda;
+    border-color: #28a745;
+    cursor: pointer;
+}
+
+/* Holidays - red */
+.calendar-day.holiday {
+    background-color: #f8d7da;
+    border-color: #dc3545;
+    cursor: not-allowed;
+}
+
+/* Selected day */
+.calendar-day.selected {
+    background-color: #bbdefb;
+    border-color: #0056b3;
+    transform: scale(1.1);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+}
+
+/* Calendar Features Removed - using integrated calendar functionality */
+
+.time-slots {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.5rem;
+    margin: 1rem 0;
+}
+
+.time-slot {
+    padding: 0.75rem;
+    border: 2px solid #dee2e6;
+    background-color: #f8f9fa;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-weight: 500;
+}
+
+.time-slot:hover {
+    background-color: #007bff;
+    color: white;
+    border-color: #007bff;
+}
+
+.time-slot.selected {
+    background-color: #28a745;
+    color: white;
+    border-color: #28a745;
+}
+
+.booking-form {
+    margin-top: 1rem;
+}
+
+.booking-form label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-weight: 500;
+    color: #495057;
+}
+
+.booking-form textarea {
+    width: 100%;
+    min-height: 80px;
+    padding: 0.75rem;
+    border: 2px solid #dee2e6;
+    border-radius: 6px;
+    resize: vertical;
+    font-family: inherit;
+    margin-bottom: 1rem;
+}
+
+.booking-form textarea:focus {
+    outline: none;
+    border-color: #007bff;
+    box-shadow: 0 0 0 0.2rem rgba(0,123,255,0.25);
+}
+
+.primary-button {
+    background-color: #007bff;
+    color: white;
+    border: none;
+    padding: 0.75rem 1.5rem;
+    border-radius: 6px;
+    font-size: 1rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+}
+
+.primary-button:hover {
+    background-color: #0056b3;
+}
+
+/* Tutor Availability Form Styles */
+.availability-form {
+    margin-top: 1rem;
+}
+
+.availability-form .time-slots {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    margin: 1rem 0;
+}
+
+.time-slot-label {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem;
+    border: 2px solid #dee2e6;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    background-color: #f8f9fa;
+}
+
+.time-slot-label:hover {
+    background-color: #e9ecef;
+    border-color: #adb5bd;
+}
+
+.availability-slot {
+    width: 20px;
+    height: 20px;
+    cursor: pointer;
+}
+
+.time-slot-label .time-slot {
+    flex: 1;
+    border: none;
+    background: none;
+    padding: 0;
+    font-weight: 500;
+    cursor: pointer;
+}
+
+.time-slot-label:has(.availability-slot:checked) {
+    background-color: #d4edda;
+    border-color: #28a745;
+}
+
+.availability-status {
+    margin: 1.5rem 0;
+}
+
+.availability-status label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-weight: 500;
+    color: #495057;
+}
+
+.day-status-select {
+    width: 100%;
+    padding: 0.75rem;
+    border: 2px solid #dee2e6;
+    border-radius: 6px;
+    font-size: 1rem;
+    background-color: white;
+}
+
+.day-status-select:focus {
+    outline: none;
+    border-color: #007bff;
+    box-shadow: 0 0 0 0.2rem rgba(0,123,255,0.25);
+}
+
+/* Admin Holiday Form Styles */
+.holiday-form {
+    margin-top: 1rem;
+}
+
+.form-group {
+    margin-bottom: 1.5rem;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-weight: 500;
+    color: #495057;
+}
+
+.form-group input,
+.form-group textarea,
+.form-group select {
+    width: 100%;
+    padding: 0.75rem;
+    border: 2px solid #dee2e6;
+    border-radius: 6px;
+    font-size: 1rem;
+    font-family: inherit;
+}
+
+.form-group input:focus,
+.form-group textarea:focus,
+.form-group select:focus {
+    outline: none;
+    border-color: #007bff;
+    box-shadow: 0 0 0 0.2rem rgba(0,123,255,0.25);
+}
+
+.form-group textarea {
+    min-height: 60px;
+    resize: vertical;
+}
+
+.form-actions {
+    display: flex;
+    gap: 1rem;
+    margin-top: 1.5rem;
+}
+
+.secondary-button {
+    background-color: #6c757d;
+    color: white;
+    border: none;
+    padding: 0.75rem 1.5rem;
+    border-radius: 6px;
+    font-size: 1rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+}
+
+.secondary-button:hover {
+    background-color: #545b62;
+}
+
+.holiday-button {
+    background-color: #dc3545;
+}
+
+.holiday-button:hover {
+    background-color: #c82333;
+}
+
+.remove-button {
+    background-color: #6c757d;
+}
+
+.remove-button:hover {
+    background-color: #545b62;
+}
+
+/* Modal Styles Removed - using integrated calendar functionality */
