@@ -1,64 +1,57 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Admin Dashboard</title>
-    <link rel="stylesheet" href="style.css">
-</head>
-<body>
-
-            <div class="dashboard-content-area">
-                <section id="approve-accounts" class="dashboard-section">
-                    <h2>Approve New Accounts</h2>
-                    <!-- Account approval list will go here -->
-                </section>
-                <section id="manage-users" class="dashboard-section hidden">
-                    <h2>Manage Users</h2>
-                    <!-- User management UI will go here -->
-                </section>
-                <section id="schedule-rules" class="dashboard-section hidden">
-                    <h2>Set Schedule Rules</h2>
-                    <p>Click a date on the calendar to mark it as a holiday.</p>
-                </section>
+<section id="approve-accounts" class="dashboard-section">
+    <h2>Approve New Accounts</h2>
+    <!-- Account approval list will go here -->
+</section>
+<section id="manage-tutors" class="dashboard-section hidden">
+    <h2>Manage Tutors</h2>
+    <div class="tutor-management-container">
+        <div class="tutor-list">
+            <h3>Tutors Under Jurisdiction</h3>
+            <div class="tutor-filters">
+                <select id="tutor-status-filter">
+                    <option value="all">All Status</option>
+                    <option value="active">Active</option>
+                    <option value="inactive">Inactive</option>
+                </select>
             </div>
-            <div class="calendar-container">
-                <!-- Calendar will be dynamically generated here -->
+            <div class="tutor-grid" id="tutor-grid"></div>
+        </div>
+        <div class="tutor-details hidden" id="tutor-details">
+            <h3>Tutor Details</h3>
+            <div class="tutor-info">
+                <h4 id="selected-tutor-name"></h4>
+                <p><strong>Email:</strong> <span id="selected-tutor-email"></span></p>
+                <p><strong>Status:</strong> <span id="selected-tutor-status"></span></p>
             </div>
-            
-            <!-- Calendar Features - Hidden by default, shown when date is selected -->
-            <div id="admin-holiday-feature" class="calendar-feature hidden">
-                <div class="feature-header">
-                    <h3>Manage Holiday</h3>
-                    <span class="selected-date"></span>
-                </div>
-                <div class="feature-content">
-                    <p>Manage this date as a system-wide holiday:</p>
-                    <div class="holiday-form">
-                        <div class="form-group">
-                            <label for="holiday-name">Holiday Name:</label>
-                            <input type="text" id="holiday-name" placeholder="e.g., Christmas, New Year's Day">
-                        </div>
-                        <div class="form-group">
-                            <label for="holiday-description">Description:</label>
-                            <textarea id="holiday-description" placeholder="Optional description..."></textarea>
-                        </div>
-                        <div class="form-group">
-                            <label for="holiday-type">Holiday Type:</label>
-                            <select id="holiday-type" class="holiday-type-select">
-                                <option value="public">Public Holiday</option>
-                                <option value="institutional">Institutional Holiday</option>
-                                <option value="custom">Custom Holiday</option>
-                            </select>
-                        </div>
-                        <div class="form-actions">
-                            <button id="mark-holiday" class="primary-button holiday-button">Mark as Holiday</button>
-                            <button id="remove-holiday" class="secondary-button remove-button">Remove Holiday</button>
-                        </div>
-                    </div>
+            <div class="approval-section">
+                <h4>Working Hours Approval</h4>
+                <div class="working-hours-request" id="working-hours-request"></div>
+                <div class="approval-actions">
+                    <button id="approve-hours-btn" class="approve-btn">Approve Hours</button>
+                    <button id="reject-hours-btn" class="reject-btn">Reject Hours</button>
                 </div>
             </div>
+            <div class="vacation-approval-section">
+                <h4>Vacation Requests</h4>
+                <div class="vacation-requests" id="vacation-requests"></div>
+                <div class="vacation-actions">
+                    <button id="approve-vacation-btn" class="approve-btn">Approve Vacation</button>
+                    <button id="reject-vacation-btn" class="reject-btn">Reject Vacation</button>
+                </div>
+            </div>
+            <button id="back-to-tutor-list" class="back-btn">Back to Tutor List</button>
         </div>
     </div>
-</body>
-</html>
+</section>
+<section id="manage-users" class="dashboard-section hidden">
+    <h2>Manage Users</h2>
+    <!-- User management UI will go here -->
+</section>
+<section id="schedule-rules" class="dashboard-section hidden">
+    <h2>Set Schedule Rules</h2>
+    <p>Click a date on the calendar to mark it as a holiday.</p>
+</section>
+<section id="calendar" class="dashboard-section hidden">
+    <h2>Calendar</h2>
+    <div class="calendar-container"></div>
+</section>

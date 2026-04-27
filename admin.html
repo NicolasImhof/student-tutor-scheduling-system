@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body class="dashboard-view">
+    <header>
+        <h1>Student-to-Tutor Scheduling</h1>
+        <nav id="main-nav">
+            <a href="index.html">Home</a>
+            <a href="#" id="logout-link">Logout</a>
+        </nav>
+    </header>
+    <div id="dashboard-nav-container">
+        <h2 id="dashboard-title">Admin Dashboard</h2>
+        <nav id="dashboard-nav">
+            <a href="#approve-accounts" class="nav-link active">Approve Accounts</a>
+            <a href="#manage-users" class="nav-link">Manage Users</a>
+            <a href="#schedule-rules" class="nav-link">Schedule Rules</a>
+            <a href="#calendar" class="nav-link">Calendar</a>
+        </nav>
+        <a href="#" id="dashboard-logout-link">Logout</a>
+    </div>
+    <main>
+        <div id="dashboard-content">
+            <section id="approve-accounts" class="dashboard-section">
+                <h2>Approve New Accounts</h2>
+                <!-- Account approval list will go here -->
+            </section>
+            <section id="manage-users" class="dashboard-section hidden">
+                <h2>Manage Users</h2>
+                <!-- User management UI will go here -->
+            </section>
+            <section id="schedule-rules" class="dashboard-section hidden">
+                <h2>Set Schedule Rules</h2>
+                <p>Click a date on the calendar to mark it as a holiday.</p>
+            </section>
+            <section id="calendar" class="dashboard-section hidden">
+                <h2>Calendar</h2>
+                <div class="calendar-container"></div>
+            </section>
+        </div>
+    </main>
+</body>
+</html>

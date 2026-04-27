@@ -1,85 +1,129 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Tutor Dashboard</title>
-    <link rel="stylesheet" href="style.css">
-</head>
-<body>
+<section id="appointments" class="dashboard-section hidden">
+    <h2>Upcoming Appointments</h2>
+    <div class="appointment-list"></div>
+    <div class="pagination-controls">
+        <button id="prev-page-btn" class="pagination-btn">← Previous</button>
+        <span id="page-info">Page 1 of 1</span>
+        <button id="next-page-btn" class="pagination-btn">Next →</button>
+    </div>
+</section>
 
-            <div class="dashboard-content-area">
-                <section id="my-availability" class="dashboard-section">
-                    <h2>My Availability</h2>
-                    <p>Click a date on the calendar to set your available time slots.</p>
-                </section>
-                <section id="appointments" class="dashboard-section hidden">
-                    <h2>Appointments</h2>
-                    <div class="appointment-list"></div>
-                </section>
-                <section id="my-profile" class="dashboard-section hidden">
-                    <h2>My Profile</h2>
-                    <form class="profile-form">
-                        <label for="tutor-name">Name:</label>
-                        <input type="text" id="tutor-name" value="Jane Smith">
-                        <label for="tutor-email">Email:</label>
-                        <input type="email" id="tutor-email" value="tutor@example.com" readonly>
-                        <button type="submit">Update Profile</button>
-                    </form>
-                </section>
-            </div>
-            <div class="calendar-container">
-                <!-- Calendar will be dynamically generated here -->
-            </div>
-            
-            <!-- Calendar Features - Hidden by default, shown when date is selected -->
-            <div id="tutor-availability-feature" class="calendar-feature hidden">
-                <div class="feature-header">
-                    <h3>Manage Availability</h3>
-                    <span class="selected-date"></span>
-                </div>
-                <div class="feature-content">
-                    <p>Set your availability for this date:</p>
-                    <div class="availability-form">
-                        <div class="time-slots">
-                            <label class="time-slot-label">
-                                <input type="checkbox" class="availability-slot" data-time="09:00">
-                                <span class="time-slot">9:00 AM - 10:00 AM</span>
-                            </label>
-                            <label class="time-slot-label">
-                                <input type="checkbox" class="availability-slot" data-time="10:00">
-                                <span class="time-slot">10:00 AM - 11:00 AM</span>
-                            </label>
-                            <label class="time-slot-label">
-                                <input type="checkbox" class="availability-slot" data-time="11:00">
-                                <span class="time-slot">11:00 AM - 12:00 PM</span>
-                            </label>
-                            <label class="time-slot-label">
-                                <input type="checkbox" class="availability-slot" data-time="14:00">
-                                <span class="time-slot">2:00 PM - 3:00 PM</span>
-                            </label>
-                            <label class="time-slot-label">
-                                <input type="checkbox" class="availability-slot" data-time="15:00">
-                                <span class="time-slot">3:00 PM - 4:00 PM</span>
-                            </label>
-                            <label class="time-slot-label">
-                                <input type="checkbox" class="availability-slot" data-time="16:00">
-                                <span class="time-slot">4:00 PM - 5:00 PM</span>
-                            </label>
-                        </div>
-                        <div class="availability-status">
-                            <label for="day-status">Day Status:</label>
-                            <select id="day-status" class="day-status-select">
-                                <option value="available">Available</option>
-                                <option value="busy">Busy (fully booked)</option>
-                                <option value="holiday">Holiday/Unavailable</option>
-                            </select>
-                        </div>
-                        <button id="save-availability" class="primary-button">Save Availability</button>
+<section id="all-appointments" class="dashboard-section hidden">
+    <h2>All Appointments</h2>
+    <div class="appointment-filters">
+        <select id="appointment-status-filter">
+            <option value="all">All Status</option>
+            <option value="Scheduled">Scheduled</option>
+            <option value="Completed">Completed</option>
+            <option value="Cancelled">Cancelled</option>
+            <option value="Pending">Pending</option>
+        </select>
+        <input type="date" id="appointment-date-filter" placeholder="Filter by date">
+    </div>
+    <div class="all-appointments-list"></div>
+    <div class="pagination-controls">
+        <button id="all-prev-page-btn" class="pagination-btn">← Previous</button>
+        <span id="all-page-info">Page 1 of 1</span>
+        <button id="all-next-page-btn" class="pagination-btn">Next →</button>
+    </div>
+</section>
+<section id="my-profile" class="dashboard-section hidden">
+    <h2>My Profile</h2>
+    <form class="profile-form">
+        <label for="tutor-name">Name:</label>
+        <input type="text" id="tutor-name" value="Jane Smith">
+        <label for="tutor-email">Email:</label>
+        <input type="email" id="tutor-email" value="tutor@example.com" readonly>
+        <button type="submit">Update Profile</button>
+    </form>
+</section>
+<section id="working-hours" class="dashboard-section hidden">
+    <h2>Weekly Working Hours</h2>
+    <div class="working-hours-container">
+        <div class="current-schedule">
+            <h3>Current Schedule</h3>
+            <div class="schedule-grid" id="current-schedule-grid"></div>
+        </div>
+        <div class="schedule-editor">
+            <h3>Edit Schedule</h3>
+            <form id="working-hours-form">
+                <div class="day-schedule" data-day="Monday">
+                    <label class="day-checkbox">
+                        <input type="checkbox" class="day-working" checked> Monday
+                    </label>
+                    <div class="time-inputs">
+                        <input type="time" class="start-time" value="09:00">
+                        <span>to</span>
+                        <input type="time" class="end-time" value="17:00">
                     </div>
                 </div>
-            </div>
+                <div class="day-schedule" data-day="Tuesday">
+                    <label class="day-checkbox">
+                        <input type="checkbox" class="day-working" checked> Tuesday
+                    </label>
+                    <div class="time-inputs">
+                        <input type="time" class="start-time" value="09:00">
+                        <span>to</span>
+                        <input type="time" class="end-time" value="17:00">
+                    </div>
+                </div>
+                <div class="day-schedule" data-day="Wednesday">
+                    <label class="day-checkbox">
+                        <input type="checkbox" class="day-working" checked> Wednesday
+                    </label>
+                    <div class="time-inputs">
+                        <input type="time" class="start-time" value="09:00">
+                        <span>to</span>
+                        <input type="time" class="end-time" value="17:00">
+                    </div>
+                </div>
+                <div class="day-schedule" data-day="Thursday">
+                    <label class="day-checkbox">
+                        <input type="checkbox" class="day-working" checked> Thursday
+                    </label>
+                    <div class="time-inputs">
+                        <input type="time" class="start-time" value="09:00">
+                        <span>to</span>
+                        <input type="time" class="end-time" value="17:00">
+                    </div>
+                </div>
+                <div class="day-schedule" data-day="Friday">
+                    <label class="day-checkbox">
+                        <input type="checkbox" class="day-working" checked> Friday
+                    </label>
+                    <div class="time-inputs">
+                        <input type="time" class="start-time" value="09:00">
+                        <span>to</span>
+                        <input type="time" class="end-time" value="17:00">
+                    </div>
+                </div>
+                <div class="day-schedule" data-day="Saturday">
+                    <label class="day-checkbox">
+                        <input type="checkbox" class="day-working" checked> Saturday
+                    </label>
+                    <div class="time-inputs">
+                        <input type="time" class="start-time" value="10:00">
+                        <span>to</span>
+                        <input type="time" class="end-time" value="14:00">
+                    </div>
+                </div>
+                <div class="day-schedule" data-day="Sunday">
+                    <label class="day-checkbox">
+                        <input type="checkbox" class="day-working"> Sunday
+                    </label>
+                    <div class="time-inputs">
+                        <input type="time" class="start-time" value="09:00">
+                        <span>to</span>
+                        <input type="time" class="end-time" value="17:00">
+                    </div>
+                </div>
+                <button type="submit" class="save-schedule-btn">Save Schedule</button>
+            </form>
         </div>
     </div>
-</body>
-</html>
+</section>
+
+<section id="calendar" class="dashboard-section hidden">
+    <h2>Calendar</h2>
+    <div class="calendar-container"></div>
+</section>
