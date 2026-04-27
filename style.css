@@ -74,7 +74,7 @@ nav a:hover {
 
 #dashboard-nav-container {
     background-color: #f8f9fa;
-    padding: 2rem 1rem;
+    padding: 1.5rem 0.75rem;
     border-right: 2px solid #e9ecef;
     display: flex;
     flex-direction: column;
@@ -83,7 +83,7 @@ nav a:hover {
     top: 60px; /* Adjust based on header height */
     left: 0;
     height: calc(100vh - 60px);
-    width: 240px;
+    width: 200px; /* Made thinner */
     z-index: 999;
 }
 
@@ -159,11 +159,16 @@ nav a:hover {
     overflow-y: auto;
 }
 
+main {
+    padding-top: 80px;    /* 60px header + 20px space */
+    padding-left: 220px;  /* 200px sidebar + 20px space */
+    padding-right: 20px;
+    padding-bottom: 20px;
+    box-sizing: border-box;
+}
+
 .dashboard-content-area {
-    flex: 1;
-    padding: 2rem;
-    overflow-y: auto;
-    position: relative;
+    width: 100%;
 }
 
 #login-content {
@@ -173,6 +178,8 @@ nav a:hover {
     box-shadow: 0 4px 8px rgba(0,0,0,0.1);
     width: 100%;
     max-width: 400px;
+    margin: 2rem auto;
+    text-align: center;
 }
 
 #login-form h3 {
@@ -388,6 +395,37 @@ footer {
     background-color: #28a745;
     color: white;
     border-color: #28a745;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    main {
+        padding-left: 1rem;
+        padding-right: 1rem;
+    }
+
+    #dashboard-nav-container {
+        width: 100%;
+        height: auto;
+        position: static;
+        border-right: none;
+        border-bottom: 2px solid #e9ecef;
+    }
+
+    .dashboard-content-area {
+        padding-left: 0; /* Reset padding */
+    }
+
+    .calendar-grid {
+        grid-template-columns: repeat(7, 1fr);
+        gap: 2px;
+    }
+
+    .calendar-day {
+        width: auto;
+        height: auto;
+        font-size: 0.9rem;
+    }
 }
 
 .booking-form {
