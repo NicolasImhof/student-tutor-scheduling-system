@@ -441,6 +441,72 @@ footer {
 
 /* Calendar Features Removed - using integrated calendar functionality */
 
+/* New Calendar Styles for Enhanced Features */
+.calendar-day.tutors-available {
+    background-color: #e3f2fd;
+    border-color: #2196f3;
+    cursor: pointer;
+}
+
+.calendar-day.has-student-appointment {
+    background-color: #fff3e0;
+    border-color: #ff9800;
+    cursor: pointer;
+}
+
+.calendar-day.working-day {
+    background-color: #e8f5e8;
+    border-color: #4caf50;
+    cursor: pointer;
+}
+
+.calendar-day.working-day:hover {
+    background-color: #c8e6c9;
+}
+
+/* Appointment and tutor count indicators */
+.appointment-count,
+.tutor-count {
+    position: absolute;
+    bottom: 2px;
+    right: 2px;
+    background-color: #ff5722;
+    color: white;
+    font-size: 0.7rem;
+    font-weight: bold;
+    padding: 2px 4px;
+    border-radius: 3px;
+    min-width: 16px;
+    text-align: center;
+}
+
+.tutor-count {
+    background-color: #2196f3;
+}
+
+.calendar-day {
+    position: relative;
+}
+
+/* Enhanced status indicators */
+.calendar-day.sick {
+    background-color: #fff3cd;
+    border-color: #ffc107;
+    cursor: not-allowed;
+}
+
+.calendar-day.vacation {
+    background-color: #d4edda;
+    border-color: #28a745;
+    cursor: not-allowed;
+}
+
+.calendar-day.unavailable {
+    background-color: #f8d7da;
+    border-color: #dc3545;
+    cursor: not-allowed;
+}
+
 .time-slots {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
@@ -1073,4 +1139,206 @@ footer {
 
 .back-btn:hover {
     background-color: #545b62;
+}
+
+/* Admin User Management Styles */
+.user-management-container {
+    background-color: white;
+    padding: 2rem;
+    border-radius: 8px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+}
+
+.user-filters {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 2rem;
+    align-items: center;
+}
+
+.user-filters select,
+.user-filters input {
+    padding: 0.5rem;
+    border: 2px solid #dee2e6;
+    border-radius: 4px;
+    font-size: 0.9rem;
+}
+
+.user-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 1rem;
+}
+
+.user-card {
+    background-color: #f8f9fa;
+    padding: 1rem;
+    border-radius: 6px;
+    border: 1px solid #dee2e6;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.user-card h4 {
+    margin: 0 0 0.5rem 0;
+    color: #495057;
+}
+
+.user-card p {
+    margin: 0.25rem 0;
+    color: #6c757d;
+    font-size: 0.9rem;
+}
+
+.user-actions {
+    display: flex;
+    gap: 0.5rem;
+    margin-top: 1rem;
+}
+
+.edit-user-btn,
+.toggle-user-status-btn {
+    padding: 0.25rem 0.5rem;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.8rem;
+    transition: background-color 0.2s;
+}
+
+.edit-user-btn {
+    background-color: #007bff;
+    color: white;
+}
+
+.edit-user-btn:hover {
+    background-color: #0056b3;
+}
+
+.toggle-user-status-btn {
+    background-color: #ffc107;
+    color: #212529;
+}
+
+.toggle-user-status-btn:hover {
+    background-color: #e0a800;
+}
+
+.toggle-user-status-btn.suspend {
+    background-color: #dc3545;
+    color: white;
+}
+
+.toggle-user-status-btn.suspend:hover {
+    background-color: #c82333;
+}
+
+/* Admin Schedule Rules Styles */
+.schedule-rules-container {
+    background-color: white;
+    padding: 2rem;
+    border-radius: 8px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+}
+
+.rule-types {
+    display: flex;
+    gap: 2rem;
+    margin-bottom: 2rem;
+}
+
+.rule-configuration,
+.holiday-management {
+    flex: 1;
+    background-color: #f8f9fa;
+    padding: 1.5rem;
+    border-radius: 6px;
+    border: 1px solid #dee2e6;
+}
+
+.config-form {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.config-form label {
+    font-weight: 500;
+    color: #495057;
+}
+
+.config-form input,
+.config-form select {
+    padding: 0.5rem;
+    border: 2px solid #dee2e6;
+    border-radius: 4px;
+    font-size: 0.9rem;
+}
+
+.config-form button {
+    background-color: #28a745;
+    color: white;
+    border: none;
+    padding: 0.5rem 1rem;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    transition: background-color 0.2s;
+}
+
+.config-form button:hover {
+    background-color: #218838;
+}
+
+.calendar-integration {
+    margin-bottom: 1rem;
+}
+
+.calendar-integration h4 {
+    margin: 0 0 1rem 0;
+    color: #495057;
+}
+
+.holiday-list {
+    background-color: white;
+    padding: 1rem;
+    border-radius: 4px;
+    border: 1px solid #dee2e6;
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.holiday-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.75rem;
+    border-bottom: 1px solid #e9ecef;
+}
+
+.holiday-item:last-child {
+    border-bottom: none;
+}
+
+.holiday-item strong {
+    color: #495057;
+}
+
+.holiday-item span {
+    color: #6c757d;
+    font-size: 0.9rem;
+}
+
+.remove-holiday-btn {
+    background-color: #dc3545;
+    color: white;
+    border: none;
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.8rem;
+    transition: background-color 0.2s;
+}
+
+.remove-holiday-btn:hover {
+    background-color: #c82333;
 }

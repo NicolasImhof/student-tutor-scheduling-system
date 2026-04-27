@@ -34,12 +34,31 @@ async function setupDatabase() {
         console.log('Schema applied successfully.');
 
         console.log('Applying migrations...');
-        const migrationPath = path.join(__dirname, 'migrations', '001_enhanced_calendar.sql');
-        const migrationSQL = fs.readFileSync(migrationPath, 'utf8');
-        const migrationStatements = migrationSQL.split(/;\s*$/m).filter(s => s.trim().length > 0);
+        
+        // Apply first migration
+        const migrationPath1 = path.join(__dirname, 'migrations', '001_enhanced_calendar.sql');
+        const migrationSQL1 = fs.readFileSync(migrationPath1, 'utf8');
+        const migrationStatements1 = migrationSQL1.split(/;\s*$/m).filter(s => s.trim().length > 0);
 
-        for (const statement of migrationStatements) {
-            console.log(`Executing migration: ${statement.substring(0, 100)}...`);
+        for (const statement of migrationStatements1) {
+            console.log(`Executing migration 001: ${statement.substring(0, 100)}...`);
+            const { error } = await supabase.rpc('execute_sql', { sql: statement });
+            if (error) {
+                if (error.message.includes('already exists')) {
+                    console.warn(`Warning: ${error.message}`);
+                } else {
+                    throw error;
+                }
+            }
+        }
+        
+        // Apply second migration
+        const migrationPath2 = path.join(__dirname, 'migrations', '002_tutor_management_enhancements.sql');
+        const migrationSQL2 = fs.readFileSync(migrationPath2, 'utf8');
+        const migrationStatements2 = migrationSQL2.split(/;\s*$/m).filter(s => s.trim().length > 0);
+
+        for (const statement of migrationStatements2) {
+            console.log(`Executing migration 002: ${statement.substring(0, 100)}...`);
             const { error } = await supabase.rpc('execute_sql', { sql: statement });
             if (error) {
                 if (error.message.includes('already exists')) {

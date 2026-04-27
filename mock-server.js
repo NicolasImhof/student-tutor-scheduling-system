@@ -6,7 +6,7 @@ const fs = require('fs');
 const path = require('path');
 const url = require('url');
 
-const PORT = 8088;
+const PORT = 8089;
 
 // Mock data for demonstration
 const mockUsers = {
@@ -105,6 +105,60 @@ function handleAPI(req, res) {
         req.on('end', () => {
             const { tutorEmail, action } = JSON.parse(body);
             res.end(JSON.stringify({ success: true, message: `Vacation ${action}d successfully` }));
+        });
+    } else if (path === '/api/admin/users') {
+        // Return all users for admin management
+        const usersData = Object.keys(mockUsers).map(email => ({
+            email: email,
+            name: mockUsers[email].name,
+            role: mockUsers[email].role,
+            approval_status: mockUsers[email].approval_status || 'Approved'
+        }));
+        res.end(JSON.stringify(usersData));
+    } else if (path === '/api/admin/toggle-user-status' && req.method === 'POST') {
+        // Mock toggle user status
+        let body = '';
+        req.on('data', chunk => body += chunk);
+        req.on('end', () => {
+            const { userEmail, newStatus } = JSON.parse(body);
+            if (mockUsers[userEmail]) {
+                mockUsers[userEmail].approval_status = newStatus;
+            }
+            res.end(JSON.stringify({ success: true, message: `User status updated to ${newStatus}` }));
+        });
+    } else if (path === '/api/admin/holidays') {
+        if (req.method === 'GET') {
+            // Return all holidays
+            res.end(JSON.stringify(mockHolidays));
+        } else if (req.method === 'POST') {
+            // Add new holiday
+            let body = '';
+            req.on('data', chunk => body += chunk);
+            req.on('end', () => {
+                const { date, name } = JSON.parse(body);
+                const newHoliday = { id: Date.now(), date, name };
+                mockHolidays.push(newHoliday);
+                res.end(JSON.stringify({ success: true, message: 'Holiday added successfully' }));
+            });
+        }
+    } else if (path.startsWith('/api/admin/holidays/') && req.method === 'DELETE') {
+        // Delete holiday
+        const holidayId = parseInt(path.split('/').pop());
+        const index = mockHolidays.findIndex(h => h.id === holidayId);
+        if (index !== -1) {
+            mockHolidays.splice(index, 1);
+            res.end(JSON.stringify({ success: true, message: 'Holiday removed successfully' }));
+        } else {
+            res.writeHead(404);
+            res.end(JSON.stringify({ error: 'Holiday not found' }));
+        }
+    } else if (path === '/api/admin/schedule-config' && req.method === 'POST') {
+        // Mock save schedule configuration
+        let body = '';
+        req.on('data', chunk => body += chunk);
+        req.on('end', () => {
+            const config = JSON.parse(body);
+            res.end(JSON.stringify({ success: true, message: 'Schedule configuration saved successfully' }));
         });
     } else {
         res.end(JSON.stringify({ message: 'Mock API endpoint' }));

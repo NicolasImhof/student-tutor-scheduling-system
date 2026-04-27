@@ -208,8 +208,352 @@ document.addEventListener('DOMContentLoaded', () => {
             showTutorDetails(selectedTutorEmail);
             renderTutorList();
         } catch (error) {
-            console.error('Error approving tutor request:', error);
+            console.error('Error processing approval:', error);
             alert('Error processing approval. Please try again.');
+        }
+    };
+    
+    // Admin User Management Functions
+    const renderUserManagement = async () => {
+        try {
+            const response = await fetch('/api/admin/users', {
+                headers: {
+                    'Authorization': `Bearer ${sessionStorage.getItem('authToken')}`
+                }
+            });
+            
+            if (!response.ok) {
+                throw new Error('Failed to fetch users');
+            }
+            
+            const users = await response.json();
+            const userManagementSection = document.getElementById('manage-users');
+            if (!userManagementSection) return;
+            
+            // Create user management UI
+            userManagementSection.innerHTML = `
+                <h2>User Management</h2>
+                <div class="user-management-container">
+                    <div class="user-filters">
+                        <select id="user-role-filter">
+                            <option value="all">All Roles</option>
+                            <option value="Student">Students</option>
+                            <option value="Tutor">Tutors</option>
+                            <option value="Admin">Admins</option>
+                        </select>
+                        <select id="user-status-filter">
+                            <option value="all">All Status</option>
+                            <option value="active">Active</option>
+                            <option value="pending">Pending</option>
+                            <option value="suspended">Suspended</option>
+                        </select>
+                    </div>
+                    <div class="user-grid" id="user-grid"></div>
+                </div>
+            `;
+            
+            const userGrid = document.getElementById('user-grid');
+            if (!userGrid) return;
+            
+            // Filter and display users
+            const roleFilter = document.getElementById('user-role-filter');
+            const statusFilter = document.getElementById('user-status-filter');
+            
+            const filterUsers = () => {
+                const roleValue = roleFilter?.value || 'all';
+                const statusValue = statusFilter?.value || 'all';
+                
+                let filteredUsers = users;
+                
+                if (roleValue !== 'all') {
+                    filteredUsers = filteredUsers.filter(user => user.role === roleValue);
+                }
+                
+                if (statusValue !== 'all') {
+                    filteredUsers = filteredUsers.filter(user => {
+                        if (statusValue === 'active') return user.approval_status === 'Approved';
+                        if (statusValue === 'pending') return user.approval_status === 'Pending';
+                        if (statusValue === 'suspended') return user.approval_status === 'Suspended';
+                        return true;
+                    });
+                }
+                
+                userGrid.innerHTML = '';
+                filteredUsers.forEach(user => {
+                    const userCard = document.createElement('div');
+                    userCard.className = 'user-card';
+                    userCard.innerHTML = `
+                        <h4>${user.name}</h4>
+                        <p>${user.email}</p>
+                        <p>Role: ${user.role}</p>
+                        <p>Status: ${user.approval_status}</p>
+                        <div class="user-actions">
+                            <button class="edit-user-btn" data-user-email="${user.email}">Edit</button>
+                            <button class="toggle-user-status-btn" data-user-email="${user.email}" data-current-status="${user.approval_status}">
+                                ${user.approval_status === 'Approved' ? 'Suspend' : 'Approve'}
+                            </button>
+                        </div>
+                    `;
+                    userGrid.appendChild(userCard);
+                });
+                
+                // Add event listeners for user actions
+                document.querySelectorAll('.edit-user-btn').forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        const userEmail = e.target.dataset.userEmail;
+                        editUser(userEmail);
+                    });
+                });
+                
+                document.querySelectorAll('.toggle-user-status-btn').forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        const userEmail = e.target.dataset.userEmail;
+                        const currentStatus = e.target.dataset.currentStatus;
+                        toggleUserStatus(userEmail, currentStatus);
+                    });
+                });
+            };
+            
+            // Initial filter
+            filterUsers();
+            
+            // Add filter event listeners
+            roleFilter?.addEventListener('change', filterUsers);
+            statusFilter?.addEventListener('change', filterUsers);
+            
+        } catch (error) {
+            console.error('Error loading users:', error);
+            alert('Error loading users. Please try again.');
+        }
+    };
+    
+    const editUser = async (userEmail) => {
+        // Placeholder for user edit functionality
+        alert(`Edit user: ${userEmail}`);
+    };
+    
+    const toggleUserStatus = async (userEmail, currentStatus) => {
+        try {
+            const newStatus = currentStatus === 'Approved' ? 'Suspended' : 'Approved';
+            const response = await fetch('/api/admin/toggle-user-status', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${sessionStorage.getItem('authToken')}`
+                },
+                body: JSON.stringify({
+                    userEmail: userEmail,
+                    newStatus: newStatus
+                })
+            });
+            
+            if (response.ok) {
+                const result = await response.json();
+                alert(result.message);
+                renderUserManagement(); // Refresh the list
+            }
+        } catch (error) {
+            console.error('Error toggling user status:', error);
+            alert('Error toggling user status. Please try again.');
+        }
+    };
+    
+    // Admin Schedule Rules Functions
+    const renderScheduleRules = () => {
+        const scheduleRulesSection = document.getElementById('schedule-rules');
+        if (!scheduleRulesSection) return;
+        
+        scheduleRulesSection.innerHTML = `
+            <h2>Schedule Rules</h2>
+            <div class="schedule-rules-container">
+                <div class="rule-types">
+                    <h3>Holiday Management</h3>
+                    <p>Click on dates in the calendar below to mark them as holidays.</p>
+                    <div class="holiday-list" id="holiday-list"></div>
+                </div>
+                <div class="rule-configuration">
+                    <h3>Schedule Configuration</h3>
+                    <div class="config-form">
+                        <label for="max-appointments-per-day">Max Appointments Per Day:</label>
+                        <input type="number" id="max-appointments-per-day" value="8" min="1" max="20">
+                        
+                        <label for="appointment-duration">Default Appointment Duration (minutes):</label>
+                        <select id="appointment-duration">
+                            <option value="30">30 minutes</option>
+                            <option value="45">45 minutes</option>
+                            <option value="60" selected>1 hour</option>
+                            <option value="90">1.5 hours</option>
+                            <option value="120">2 hours</option>
+                        </select>
+                        
+                        <label for="buffer-time">Buffer Time Between Appointments (minutes):</label>
+                        <select id="buffer-time">
+                            <option value="0">No buffer</option>
+                            <option value="15" selected>15 minutes</option>
+                            <option value="30">30 minutes</option>
+                            <option value="60">1 hour</option>
+                        </select>
+                        
+                        <button id="save-schedule-config" class="save-config-btn">Save Configuration</button>
+                    </div>
+                </div>
+                <div class="calendar-integration">
+                    <h3>Calendar Integration</h3>
+                    <div class="calendar-container" id="admin-calendar"></div>
+                </div>
+            </div>
+        `;
+        
+        // Load existing holidays
+        loadHolidays();
+        
+        // Add event listener for configuration save
+        document.getElementById('save-schedule-config')?.addEventListener('click', saveScheduleConfig);
+        
+        // Initialize admin calendar
+        initializeAdminCalendar();
+    };
+    
+    const loadHolidays = async () => {
+        try {
+            const response = await fetch('/api/admin/holidays', {
+                headers: {
+                    'Authorization': `Bearer ${sessionStorage.getItem('authToken')}`
+                }
+            });
+            
+            if (response.ok) {
+                const holidays = await response.json();
+                const holidayList = document.getElementById('holiday-list');
+                if (holidayList) {
+                    holidayList.innerHTML = '<h4>Current Holidays:</h4>';
+                    holidays.forEach(holiday => {
+                        const holidayItem = document.createElement('div');
+                        holidayItem.className = 'holiday-item';
+                        holidayItem.innerHTML = `
+                            <span>${holiday.date}: ${holiday.name}</span>
+                            <button class="remove-holiday-btn" data-holiday-id="${holiday.id}">Remove</button>
+                        `;
+                        holidayList.appendChild(holidayItem);
+                    });
+                    
+                    // Add event listeners for remove buttons
+                    document.querySelectorAll('.remove-holiday-btn').forEach(btn => {
+                        btn.addEventListener('click', (e) => {
+                            const holidayId = e.target.dataset.holidayId;
+                            removeHoliday(holidayId);
+                        });
+                    });
+                }
+            }
+        } catch (error) {
+            console.error('Error loading holidays:', error);
+        }
+    };
+    
+    const initializeAdminCalendar = () => {
+        const adminCalendarContainer = document.getElementById('admin-calendar');
+        if (!adminCalendarContainer) return;
+        
+        // Create a simple calendar for holiday management
+        const today = new Date();
+        const currentMonth = today.getMonth();
+        const currentYear = today.getFullYear();
+        
+        const calendar = new Calendar(adminCalendarContainer, {
+            month: currentMonth,
+            year: currentYear,
+            role: 'Admin',
+            holidays: holidays,
+            availability: {},
+            appointments: [],
+            onDateSelect: (date, dayAvailability, role) => {
+                // Admin can click dates to add/remove holidays
+                addHoliday(date);
+            }
+        });
+        
+        calendar.render();
+    };
+    
+    const addHoliday = async (date) => {
+        const holidayName = prompt(`Enter holiday name for ${date}:`);
+        if (!holidayName) return;
+        
+        try {
+            const response = await fetch('/api/admin/holidays', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${sessionStorage.getItem('authToken')}`
+                },
+                body: JSON.stringify({
+                    date: date,
+                    name: holidayName
+                })
+            });
+            
+            if (response.ok) {
+                const result = await response.json();
+                alert(result.message);
+                loadHolidays(); // Refresh the holiday list
+                initializeAdminCalendar(); // Refresh the calendar
+            }
+        } catch (error) {
+            console.error('Error adding holiday:', error);
+            alert('Error adding holiday. Please try again.');
+        }
+    };
+    
+    const removeHoliday = async (holidayId) => {
+        if (!confirm('Are you sure you want to remove this holiday?')) return;
+        
+        try {
+            const response = await fetch(`/api/admin/holidays/${holidayId}`, {
+                method: 'DELETE',
+                headers: {
+                    'Authorization': `Bearer ${sessionStorage.getItem('authToken')}`
+                }
+            });
+            
+            if (response.ok) {
+                const result = await response.json();
+                alert(result.message);
+                loadHolidays(); // Refresh the holiday list
+                initializeAdminCalendar(); // Refresh the calendar
+            }
+        } catch (error) {
+            console.error('Error removing holiday:', error);
+            alert('Error removing holiday. Please try again.');
+        }
+    };
+    
+    const saveScheduleConfig = async () => {
+        const maxAppointments = document.getElementById('max-appointments-per-day')?.value;
+        const appointmentDuration = document.getElementById('appointment-duration')?.value;
+        const bufferTime = document.getElementById('buffer-time')?.value;
+        
+        try {
+            const response = await fetch('/api/admin/schedule-config', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${sessionStorage.getItem('authToken')}`
+                },
+                body: JSON.stringify({
+                    maxAppointmentsPerDay: parseInt(maxAppointments),
+                    appointmentDuration: parseInt(appointmentDuration),
+                    bufferTime: parseInt(bufferTime)
+                })
+            });
+            
+            if (response.ok) {
+                const result = await response.json();
+                alert(result.message);
+            }
+        } catch (error) {
+            console.error('Error saving schedule configuration:', error);
+            alert('Error saving configuration. Please try again.');
         }
     };
 
@@ -552,6 +896,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     initializeWorkingHoursForm();
                 } else if (section === 'Manage Tutors') {
                     renderTutorList();
+                } else if (section === 'Manage Users') {
+                    renderUserManagement();
+                } else if (section === 'Schedule Rules') {
+                    renderScheduleRules();
                 }
             }
         }
@@ -649,6 +997,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 const response = await fetch('/api/calendar-data');
                 if (response.ok) {
                     this.calendarData = await response.json();
+                    // Enhance data based on user role
+                    await this.enhanceCalendarData();
                 } else {
                     this.calendarData = this.getMockCalendarData();
                 }
@@ -657,6 +1007,53 @@ document.addEventListener('DOMContentLoaded', () => {
                 this.calendarData = this.getMockCalendarData();
             }
             this.render();
+        }
+        
+        async enhanceCalendarData() {
+            const userEmail = sessionStorage.getItem('userEmail');
+            const userRole = sessionStorage.getItem('userRole');
+            
+            // Add working hours for tutors
+            if (userRole === 'Tutor' && workingHours[userEmail]) {
+                this.calendarData.workingHours = workingHours[userEmail];
+            }
+            
+            // Add vacation requests for tutors
+            if (userRole === 'Tutor' && vacationRequests[userEmail]) {
+                this.calendarData.vacationRequests = vacationRequests[userEmail];
+            }
+            
+            // Add all appointments for the user
+            if (appointments[userEmail]) {
+                this.calendarData.userAppointments = appointments[userEmail];
+            }
+            
+            // For students, add available tutors and their appointments
+            if (userRole === 'Student') {
+                // Get all available tutors
+                const availableTutors = Object.keys(mockUsers).filter(email => 
+                    mockUsers[email].role === 'Tutor'
+                );
+                this.calendarData.availableTutors = availableTutors;
+                
+                // Get student appointments
+                if (appointments[userEmail]) {
+                    this.calendarData.studentAppointments = appointments[userEmail];
+                }
+            }
+            
+            // For admins, add all tutor data
+            if (userRole === 'Admin') {
+                this.calendarData.allTutors = Object.keys(mockUsers)
+                    .filter(email => mockUsers[email].role === 'Tutor')
+                    .map(email => ({
+                        email: email,
+                        name: mockUsers[email].name,
+                        workingHours: workingHours[email] || {},
+                        availability: mockAvailability[email] || {},
+                        appointments: appointments[email] || []
+                    }));
+            }
         }
 
         getMockCalendarData() {
@@ -714,38 +1111,83 @@ document.addEventListener('DOMContentLoaded', () => {
                     dayCell.classList.add('holiday');
                 }
                 
-                // Check for working days (tutors)
+                // Role-specific calendar enhancements
                 const userEmail = sessionStorage.getItem('userEmail');
-                const workingHoursData = workingHours[userEmail];
-                if (workingHoursData && workingHoursData.weeklySchedule && workingHoursData.weeklySchedule[dayName]) {
-                    const daySchedule = workingHoursData.weeklySchedule[dayName];
-                    if (daySchedule.working) {
-                        dayCell.classList.add('working-day');
+                const userRole = sessionStorage.getItem('userRole');
+                
+                if (userRole === 'Tutor') {
+                    // Show tutor-specific information
+                    const workingHoursData = workingHours[userEmail];
+                    if (workingHoursData && workingHoursData.weeklySchedule && workingHoursData.weeklySchedule[dayName]) {
+                        const daySchedule = workingHoursData.weeklySchedule[dayName];
+                        if (daySchedule.working) {
+                            dayCell.classList.add('working-day');
+                        }
                     }
-                }
-                
-                // Check for appointments
-                const dayAppointments = this.getDayAppointments(date);
-                if (dayAppointments.length > 0) {
-                    dayCell.classList.add('has-appointment');
-                    const appointmentCount = document.createElement('div');
-                    appointmentCount.className = 'appointment-count';
-                    appointmentCount.textContent = dayAppointments.length;
-                    dayCell.appendChild(appointmentCount);
-                }
-                
-                const dayAvailability = this.getDayAvailability(date);
-                if (dayAvailability) {
-                    if (dayAvailability.status === 'busy') {
-                        dayCell.classList.add('busy');
-                    } else if (dayAvailability.status === 'available') {
-                        dayCell.classList.add('available');
-                    } else if (dayAvailability.status === 'sick') {
-                        dayCell.classList.add('sick');
-                    } else if (dayAvailability.status === 'vacation') {
-                        dayCell.classList.add('vacation');
-                    } else if (dayAvailability.status === 'unavailable') {
-                        dayCell.classList.add('unavailable');
+                    
+                    // Show availability status
+                    const dayAvailability = this.getDayAvailability(date);
+                    if (dayAvailability) {
+                        if (dayAvailability.status === 'busy') {
+                            dayCell.classList.add('busy');
+                        } else if (dayAvailability.status === 'available') {
+                            dayCell.classList.add('available');
+                        } else if (dayAvailability.status === 'sick') {
+                            dayCell.classList.add('sick');
+                        } else if (dayAvailability.status === 'vacation') {
+                            dayCell.classList.add('vacation');
+                        } else if (dayAvailability.status === 'unavailable') {
+                            dayCell.classList.add('unavailable');
+                        }
+                    }
+                    
+                    // Show appointments
+                    const dayAppointments = this.getDayAppointments(date);
+                    if (dayAppointments.length > 0) {
+                        dayCell.classList.add('has-appointment');
+                        const appointmentCount = document.createElement('div');
+                        appointmentCount.className = 'appointment-count';
+                        appointmentCount.textContent = dayAppointments.length;
+                        dayCell.appendChild(appointmentCount);
+                    }
+                    
+                } else if (userRole === 'Student') {
+                    // Show student-specific information
+                    // Show days with available tutors
+                    const availableTutors = this.getAvailableTutorsForDate(date);
+                    if (availableTutors.length > 0) {
+                        dayCell.classList.add('tutors-available');
+                        const tutorCount = document.createElement('div');
+                        tutorCount.className = 'tutor-count';
+                        tutorCount.textContent = `${availableTutors.length} tutors`;
+                        dayCell.appendChild(tutorCount);
+                    }
+                    
+                    // Show student appointments
+                    const studentAppointments = this.getStudentAppointmentsForDate(date);
+                    if (studentAppointments.length > 0) {
+                        dayCell.classList.add('has-student-appointment');
+                        const appointmentCount = document.createElement('div');
+                        appointmentCount.className = 'appointment-count';
+                        appointmentCount.textContent = studentAppointments.length;
+                        dayCell.appendChild(appointmentCount);
+                    }
+                    
+                } else if (userRole === 'Admin') {
+                    // Show admin-specific information
+                    // Show holidays
+                    if (this.calendarData.holidays && this.calendarData.holidays.includes(date)) {
+                        dayCell.classList.add('holiday');
+                    }
+                    
+                    // Show tutor availability overview
+                    const tutorAvailability = this.getTutorAvailabilityForDate(date);
+                    if (tutorAvailability.available > 0) {
+                        dayCell.classList.add('tutors-available');
+                        const tutorCount = document.createElement('div');
+                        tutorCount.className = 'tutor-count';
+                        tutorCount.textContent = `${tutorAvailability.available}/${tutorAvailability.total} tutors`;
+                        dayCell.appendChild(tutorCount);
                     }
                 }
                 if (this.selectedDate === date) {
@@ -774,6 +1216,43 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
             }
             return [];
+        }
+        
+        getAvailableTutorsForDate(date) {
+            const availableTutors = [];
+            if (this.calendarData.availableTutors) {
+                this.calendarData.availableTutors.forEach(tutorEmail => {
+                    const tutorAvailability = this.calendarData.availability && this.calendarData.availability[tutorEmail];
+                    if (tutorAvailability && tutorAvailability[date] && tutorAvailability[date].status === 'available') {
+                        availableTutors.push(tutorEmail);
+                    }
+                });
+            }
+            return availableTutors;
+        }
+        
+        getStudentAppointmentsForDate(date) {
+            if (this.calendarData.studentAppointments) {
+                return this.calendarData.studentAppointments.filter(appt => {
+                    const appointmentDate = new Date(appt.date).toISOString().split('T')[0];
+                    return appointmentDate === date;
+                });
+            }
+            return [];
+        }
+        
+        getTutorAvailabilityForDate(date) {
+            const result = { available: 0, total: 0 };
+            if (this.calendarData.allTutors) {
+                this.calendarData.allTutors.forEach(tutor => {
+                    result.total++;
+                    const tutorAvailability = tutor.availability && tutor.availability[date];
+                    if (tutorAvailability && tutorAvailability.status === 'available') {
+                        result.available++;
+                    }
+                });
+            }
+            return result;
         }
 
         selectDate(date, dayAvailability) {
