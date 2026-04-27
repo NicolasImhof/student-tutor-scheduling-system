@@ -6,14 +6,16 @@ const fs = require('fs');
 const path = require('path');
 const url = require('url');
 
-const PORT = 8089;
+const PORT = 8090;
 
 // Mock data for demonstration
 const mockUsers = {
-    'student@example.com': { password: 'password123', role: 'Student', name: 'John Student' },
-    'tutor@example.com': { password: 'password123', role: 'Tutor', name: 'Jane Tutor' },
-    'admin@example.com': { password: 'password123', role: 'Admin', name: 'Admin User' },
-    'superadmin@example.com': { password: 'password123', role: 'Super Admin', name: 'Super Admin' }
+    'student@example.com': { password: 'password123', role: 'Student', name: 'John Student', approval_status: 'Approved' },
+    'student2@example.com': { password: 'password123', role: 'Student', name: 'Sarah Student', approval_status: 'Approved' },
+    'tutor@example.com': { password: 'password123', role: 'Tutor', name: 'Jane Tutor', approval_status: 'Approved' },
+    'tutor2@example.com': { password: 'password123', role: 'Tutor', name: 'Mike Tutor', approval_status: 'Pending' },
+    'admin@example.com': { password: 'password123', role: 'Admin', name: 'Admin User', approval_status: 'Approved' },
+    'superadmin@example.com': { password: 'password123', role: 'Super Admin', name: 'Super Admin', approval_status: 'Approved' }
 };
 
 const mockTutors = [

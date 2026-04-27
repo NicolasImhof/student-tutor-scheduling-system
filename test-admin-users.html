@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Admin Users</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ccc; }
+        .success { color: green; }
+        .error { color: red; }
+        .user-card { border: 1px solid #ddd; padding: 10px; margin: 10px 0; }
+    </style>
+</head>
+<body>
+    <h1>Admin Users Test</h1>
+    
+    <div class="test-section">
+        <h2>Test API Endpoint</h2>
+        <button onclick="testApi()">Test /api/admin/users</button>
+        <div id="api-result"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>Test User Management Function</h2>
+        <button onclick="testUserManagement()">Test renderUserManagement</button>
+        <div id="function-result"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>Simulated User Management</h2>
+        <div id="user-management-test"></div>
+    </div>
+
+    <script>
+        // Mock session storage
+        sessionStorage.setItem('authToken', 'test-token');
+        
+        async function testApi() {
+            const resultDiv = document.getElementById('api-result');
+            try {
+                const response = await fetch('/api/admin/users', {
+                    headers: {
+                        'Authorization': 'Bearer test-token'
+                    }
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                const users = await response.json();
+                resultDiv.innerHTML = `<p class="success">API Test Successful! Found ${users.length} users</p>`;
+                resultDiv.innerHTML += '<pre>' + JSON.stringify(users, null, 2) + '</pre>';
+            } catch (error) {
+                resultDiv.innerHTML = `<p class="error">API Test Failed: ${error.message}</p>`;
+            }
+        }
+        
+        function testUserManagement() {
+            const resultDiv = document.getElementById('function-result');
+            try {
+                // Test if the function exists in the main script
+                if (typeof renderUserManagement === 'function') {
+                    resultDiv.innerHTML = '<p class="success">renderUserManagement function exists!</p>';
+                } else {
+                    resultDiv.innerHTML = '<p class="error">renderUserManagement function not found</p>';
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<p class="error">Function test failed: ${error.message}</p>`;
+            }
+        }
+        
+        // Simulate the user management functionality
+        function simulateUserManagement() {
+            const container = document.getElementById('user-management-test');
+            const mockUsers = [
+                { email: 'student@example.com', name: 'John Student', role: 'Student', approval_status: 'Approved' },
+                { email: 'tutor@example.com', name: 'Jane Tutor', role: 'Tutor', approval_status: 'Approved' },
+                { email: 'tutor2@example.com', name: 'Mike Tutor', role: 'Tutor', approval_status: 'Pending' }
+            ];
+            
+            container.innerHTML = '<h3>Simulated User List</h3>';
+            mockUsers.forEach(user => {
+                container.innerHTML += `
+                    <div class="user-card">
+                        <h4>${user.name}</h4>
+                        <p>Email: ${user.email}</p>
+                        <p>Role: ${user.role}</p>
+                        <p>Status: ${user.approval_status}</p>
+                    </div>
+                `;
+            });
+        }
+        
+        // Run simulation on load
+        window.onload = function() {
+            simulateUserManagement();
+        };
+    </script>
+</body>
+</html>

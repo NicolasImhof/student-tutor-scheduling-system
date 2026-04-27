@@ -216,6 +216,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Admin User Management Functions
     const renderUserManagement = async () => {
         try {
+            console.log('Loading user management...');
             const response = await fetch('/api/admin/users', {
                 headers: {
                     'Authorization': `Bearer ${sessionStorage.getItem('authToken')}`
@@ -223,10 +224,11 @@ document.addEventListener('DOMContentLoaded', () => {
             });
             
             if (!response.ok) {
-                throw new Error('Failed to fetch users');
+                throw new Error(`Failed to fetch users: ${response.status} ${response.statusText}`);
             }
             
             const users = await response.json();
+            console.log('Users loaded:', users);
             const userManagementSection = document.getElementById('manage-users');
             if (!userManagementSection) return;
             
