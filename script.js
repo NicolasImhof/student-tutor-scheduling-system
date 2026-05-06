@@ -45,17 +45,6 @@ window.App = {
             this.logout();
         });
 
-        const navContainer = document.getElementById('dashboard-nav');
-        if (navContainer) {
-            navContainer.addEventListener('click', (e) => {
-                if (e.target.matches('a.nav-link')) {
-                    e.preventDefault();
-                    const view = e.target.getAttribute('href').substring(1);
-                    this.loadDashboardView(view);
-                }
-            });
-        }
-
         const dashboardContent = document.getElementById('dashboard-content');
         if (dashboardContent) {
             dashboardContent.addEventListener('click', (e) => {
@@ -177,11 +166,21 @@ window.App = {
                 </footer>
             </div>
         `;
-        // Re-add the event listener for the new logout link
         document.getElementById('logout-link').addEventListener('click', (e) => {
             e.preventDefault();
             this.logout();
         });
+
+        const navContainer = document.getElementById('dashboard-nav-container');
+        if (navContainer) {
+            navContainer.addEventListener('click', (e) => {
+                if (e.target.matches('a.nav-link')) {
+                    e.preventDefault();
+                    const view = e.target.getAttribute('href').substring(1);
+                    this.loadDashboardView(view);
+                }
+            });
+        }
     },
 
     loadDashboardNav() {
