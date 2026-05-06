@@ -3,54 +3,74 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Student-to-Tutor Scheduling</title>
+    <title>Student-to-Tutor Scheduling System</title>
     <link rel="stylesheet" href="style.css">
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
-    <header>
-        <h1>Student-to-Tutor Scheduling</h1>
-        <nav id="main-nav">
-            <a href="#" id="home-link">Home</a>
-            <a href="#" id="login-link">Login</a>
-            <a href="#" id="logout-link" class="hidden">Logout</a>
-        </nav>
-    </header>
-    <div id="dashboard-nav-container" class="hidden">
-        <h2 id="dashboard-title"></h2>
-        <nav id="dashboard-nav"></nav>
-        <a href="#" id="dashboard-logout-link">Logout</a>
-    </div>
-    <main>
-        <div id="home-content">
-            <h2>Welcome to the Tutoring Scheduler</h2>
-            <p>Find a tutor, schedule a session, and get the help you need.</p>
-        </div>
-        <div id="login-content" class="hidden">
+
+    <!-- =====================================================================================
+       LOGIN VIEW
+       - This is the default view shown to logged-out users.
+       ===================================================================================== -->
+    <div id="login-view">
+        <div class="login-container">
+            <h1>Student-to-Tutor Scheduling</h1>
+            <p style="text-align: center; color: var(--text-muted-color); margin-bottom: 2rem;">
+                Connect with qualified tutors and manage your learning schedule
+            </p>
             <form id="login-form">
-                <h3>Login</h3>
-                <label for="email">Email:</label>
-                <input type="email" id="email" name="email" required>
-                <label for="password">Password:</label>
-                <input type="password" id="password" name="password" required>
-                <button type="submit">Login</button>
+                <div class="form-group">
+                    <label for="email">Email</label>
+                    <input type="email" id="email" name="email" required>
+                </div>
+                <div class="form-group">
+                    <label for="password">Password</label>
+                    <input type="password" id="password" name="password" required>
+                </div>
+                <button type="submit" class="btn btn-primary">Login</button>
             </form>
-            <div id="demo-credentials">
-                <h4>Demo Credentials</h4>
-                <p><strong>Student:</strong> student@example.com / password123</p>
-                <p><strong>Tutor:</strong> tutor@example.com / password123</p>
-                <p><strong>Admin:</strong> admin@example.com / password123</p>
-                <p><strong>Super Admin:</strong> superadmin@example.com / password123</p>
+            <div id="demo-credentials"></div>
+            <div style="text-align: center; margin-top: 1.5rem; padding-top: 1.5rem; border-top: 1px solid var(--border-color);">
+                <p style="color: var(--text-muted-color); margin-bottom: 1rem;">Don't have an account?</p>
+                <a href="register.html" class="btn btn-secondary">Create Account</a>
             </div>
         </div>
-        <div id="dashboard-content" class="hidden">
-            <!-- Role-specific dashboard content will be loaded here -->
+    </div>
+
+    <!-- =====================================================================================
+       DASHBOARD VIEW (Hidden by default)
+       - This view is shown only after a successful login.
+       ===================================================================================== -->
+    <div id="dashboard-view" class="hidden">
+        <header>
+            <h1>Student-to-Tutor Scheduling</h1>
+            <nav id="main-nav">
+                <a href="#" id="logout-link">Logout</a>
+            </nav>
+        </header>
+
+        <div id="dashboard-nav-container">
+            <h2 id="dashboard-title">Dashboard</h2>
+            <nav id="dashboard-nav"></nav>
         </div>
-    </main>
-    <footer>
-        <p>&copy; 2026 Student-to-Tutor Scheduling</p>
-    </footer>
-    <script src="data.js"></script>
+
+        <main>
+            <div id="dashboard-content"></div>
+            <div id="calendar-container"></div>
+        </main>
+
+        <footer>
+            <p>&copy; 2026 Student-to-Tutor Scheduling</p>
+        </footer>
+    </div>
+
+    <!-- =====================================================================================
+       MODAL CONTAINER
+       ===================================================================================== -->
+    <div id="modal-container"></div>
+
     <script src="script.js"></script>
+    <script src="calendar.js"></script>
 </body>
 </html>

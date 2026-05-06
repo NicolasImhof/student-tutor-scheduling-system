@@ -1,0 +1,44 @@
+
+/* =====================================================================================
+   CALENDAR STYLES
+   ===================================================================================== */
+
+.calendar-container {
+    background-color: var(--surface-color);
+    border-radius: 8px;
+    padding: 1.5rem;
+    border: 1px solid var(--border-color);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.calendar-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.5rem;
+}
+
+.calendar-header h3 {
+    margin: 0;
+}
+
+.calendar-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 5px;
+}
+
+.calendar-day {
+    border: 1px solid var(--border-color);
+    min-height: 120px;
+    padding: 0.5rem;
+}
+
+.calendar-day-header {
+    font-weight: 600;
+    font-size: 0.875rem;
+    text-align: center;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid var(--border-color);
+    margin-bottom: 0.5rem;
+}

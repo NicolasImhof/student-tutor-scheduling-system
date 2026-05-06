@@ -1,161 +1,149 @@
-class Calendar {
-    constructor(container, options = {}) {
+
+// V10 Calendar - Weekly List View
+window.Calendar = {
+    supabase: null,
+    tutor: null,
+    viewingAs: null, // The user object of the person viewing the calendar (e.g., a student or admin)
+    onSlotSelect: null, 
+    container: null,
+    viewDate: new Date(),
+
+    init(tutor, viewingAs, supabase, onSlotSelectCallback, container) {
+        this.tutor = tutor;
+        this.viewingAs = viewingAs;
+        this.supabase = supabase;
+        this.onSlotSelect = onSlotSelectCallback;
         this.container = container;
-        this.role = options.role || 'student'; // student, tutor, admin
-        this.today = new Date();
-        this.currentMonth = this.today.getMonth();
-        this.currentYear = this.today.getFullYear();
-        this.onDateSelect = options.onDateSelect || function() {};
-        this.selectedDate = null;
-        this.calendarData = {};
-        
-        this.loadCalendarData();
-    }
-
-    async loadCalendarData() {
-        try {
-            const response = await fetch('/api/calendar-data', {
-                method: 'GET',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${localStorage.getItem('authToken')}`
-                }
-            });
-            
-            if (response.ok) {
-                this.calendarData = await response.json();
-            }
-        } catch (error) {
-            console.error('Error loading calendar data:', error);
-            // Fallback to mock data if API fails
-            this.calendarData = this.getMockCalendarData();
-        }
         this.render();
-    }
+    },
 
-    getMockCalendarData() {
-        // This will be replaced with actual database data
-        return {
-            holidays: holidays || [],
-            availability: availability || {},
-            appointments: appointments || []
-        };
-    }
-
-    render() {
-        this.container.innerHTML = '';
-
-        const header = document.createElement('div');
-        header.className = 'calendar-header';
-        header.innerHTML = `
-            <button id="prev-month">&lt;</button>
-            <h2>${new Date(this.currentYear, this.currentMonth).toLocaleString('default', { month: 'long' })} ${this.currentYear}</h2>
-            <button id="next-month">&gt;</button>
+    async render() {
+        this.container.innerHTML = `
+            <div class="calendar-container-v10">
+                <div class="calendar-header-v10">
+                    <button id="prev-week-btn-v10">&lt; Prev Week</button>
+                    <h3 id="week-display-v10"></h3>
+                    <button id="next-week-btn-v10">Next Week &gt;</button>
+                </div>
+                <div id="calendar-grid-v10" class="calendar-grid-v10"></div>
+            </div>
         `;
-        this.container.appendChild(header);
+        this.addEventListeners();
+        this.renderWeekView();
+    },
 
-        const grid = document.createElement('div');
-        grid.className = 'calendar-grid';
-
-        const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-        days.forEach(day => {
-            const dayName = document.createElement('div');
-            dayName.className = 'day-name';
-            dayName.textContent = day;
-            grid.appendChild(dayName);
+    addEventListeners() {
+        document.getElementById('prev-week-btn-v10').addEventListener('click', () => {
+            this.viewDate.setDate(this.viewDate.getDate() - 7);
+            this.renderWeekView();
         });
 
-        const firstDay = new Date(this.currentYear, this.currentMonth, 1).getDay();
-        const daysInMonth = new Date(this.currentYear, this.currentMonth + 1, 0).getDate();
+        document.getElementById('next-week-btn-v10').addEventListener('click', () => {
+            this.viewDate.setDate(this.viewDate.getDate() + 7);
+            this.renderWeekView();
+        });
 
-        for (let i = 0; i < firstDay; i++) {
-            const emptyCell = document.createElement('div');
-            grid.appendChild(emptyCell);
+        this.container.addEventListener('click', (e) => {
+            if (e.target.classList.contains('booking-slot-btn')) {
+                if (this.onSlotSelect) {
+                    const date = e.target.dataset.date;
+                    const time = e.target.dataset.time;
+                    this.onSlotSelect(this.tutor, date, time);
+                }
+            }
+        });
+    },
+
+    async renderWeekView() {
+        const grid = this.container.querySelector('.calendar-grid-v10');
+        const weekDisplay = this.container.querySelector('#week-display-v10');
+        
+        const startOfWeek = new Date(this.viewDate);
+        startOfWeek.setDate(this.viewDate.getDate() - this.viewDate.getDay());
+        const endOfWeek = new Date(startOfWeek);
+        endOfWeek.setDate(startOfWeek.getDate() + 6);
+
+        weekDisplay.textContent = `${startOfWeek.toLocaleDateString()} - ${endOfWeek.toLocaleDateString()}`;
+
+        let gridHtml = '<div class="time-ruler"></div>'; // Time labels column
+        const days = [];
+        for (let i = 0; i < 7; i++) {
+            const date = new Date(startOfWeek);
+            date.setDate(startOfWeek.getDate() + i);
+            days.push(date);
+            gridHtml += `<div class="day-column-v10" data-date="${date.toISOString().split('T')[0]}">
+                            <div class="day-header-v10">${date.toLocaleDateString('en-US', { weekday: 'short' })}<br>${date.toLocaleDateString('en-US', { month: 'numeric', day: 'numeric' })}</div>
+                         </div>`;
         }
+        grid.innerHTML = gridHtml;
 
-        for (let i = 1; i <= daysInMonth; i++) {
-            const dayCell = document.createElement('div');
-            dayCell.className = 'calendar-day';
-            dayCell.textContent = i;
-            const date = `${this.currentYear}-${String(this.currentMonth + 1).padStart(2, '0')}-${String(i).padStart(2, '0')}`;
-            const dayOfWeek = new Date(this.currentYear, this.currentMonth, i).getDay();
+        // Render time ruler
+        const timeRuler = grid.querySelector('.time-ruler');
+        let timeRulerHtml = '<div class="day-header-v10">Time</div>';
+        for (let hour = 0; hour < 24; hour++) {
+            timeRulerHtml += `<div class="time-label">${hour}:00</div>`;
+        }
+        timeRuler.innerHTML = timeRulerHtml;
 
-            // Current day highlighting
-            if (i === this.today.getDate() && this.currentMonth === this.today.getMonth() && this.currentYear === this.today.getFullYear()) {
-                dayCell.classList.add('current-day');
-            }
+        // Fetch data for the week
+        const { data: workingHours } = await this.supabase.from('working_hours').select('*').eq('tutor_id', this.tutor.user_id);
+        const { data: appointments } = await this.supabase.from('appointments_enhanced').select('*').eq('tutor_id', this.tutor.user_id);
 
-            // Weekend highlighting (Saturday=6, Sunday=0)
-            if (dayOfWeek === 0 || dayOfWeek === 6) {
-                dayCell.classList.add('weekend');
-            }
+        // Render availability and appointments
+        for (const day of days) {
+            const dayStr = day.toISOString().split('T')[0];
+            const dayOfWeek = day.toLocaleDateString('en-US', { weekday: 'long' });
+            const dayColumn = grid.querySelector(`.day-column-v10[data-date="${dayStr}"]`);
             
-            // Holiday checking
-            if (this.calendarData.holidays && this.calendarData.holidays.includes(date)) {
-                dayCell.classList.add('holiday');
-            }
+            const hours = workingHours.find(h => h.day_of_week === dayOfWeek);
+            if (!hours || !hours.is_working) continue; // Skip if not a working day
 
-            // Availability and busy status checking
-            const dayAvailability = this.getDayAvailability(date);
-            if (dayAvailability) {
-                if (dayAvailability.status === 'busy') {
-                    dayCell.classList.add('busy');
-                } else if (dayAvailability.status === 'available') {
-                    dayCell.classList.add('available');
+            const startHour = parseInt(hours.start_time.split(':')[0]);
+            const endHour = parseInt(hours.end_time.split(':')[0]);
+            const top = (startHour * 60) / 1440 * 100; // 1440 minutes in a day
+            const height = ((endHour - startHour) * 60) / 1440 * 100;
+
+            const availabilityBlock = document.createElement('div');
+            availabilityBlock.className = 'availability-block';
+            availabilityBlock.style.top = `${top}%`;
+            availabilityBlock.style.height = `${height}%`;
+            dayColumn.appendChild(availabilityBlock);
+
+            // Render booking slots if the viewer is a student
+            if (this.viewingAs.role === 'Student') {
+                for (let h = startHour; h < endHour; h++) {
+                    for (let m = 0; m < 60; m += 30) {
+                        const time = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+                        const slotTop = ((h * 60 + m) / 1440) * 100;
+                        const isBooked = appointments.some(appt => new Date(appt.start_time).getTime() === new Date(`${dayStr}T${time}`).getTime());
+
+                        if (!isBooked) {
+                            const slotButton = document.createElement('button');
+                            slotButton.className = 'booking-slot-btn';
+                            slotButton.dataset.date = dayStr;
+                            slotButton.dataset.time = time;
+                            slotButton.style.top = `${slotTop}%`;
+                            slotButton.textContent = time;
+                            dayColumn.appendChild(slotButton);
+                        }
+                    }
                 }
             }
 
-            // Selected date highlighting
-            if (this.selectedDate === date) {
-                dayCell.classList.add('selected');
-            }
-            
-            // Add click event with selection logic
-            dayCell.addEventListener('click', () => this.selectDate(date, dayAvailability));
-            grid.appendChild(dayCell);
+            // Render existing appointments
+            appointments.filter(a => a.start_time.startsWith(dayStr)).forEach(appt => {
+                const apptStart = new Date(appt.start_time);
+                const apptEnd = new Date(appt.end_time);
+                const apptTop = ((apptStart.getHours() * 60 + apptStart.getMinutes()) / 1440) * 100;
+                const apptHeight = ((apptEnd - apptStart) / 60000) / 1440 * 100;
+
+                const appointmentBlock = document.createElement('div');
+                appointmentBlock.className = 'appointment-block';
+                appointmentBlock.style.top = `${apptTop}%`;
+                appointmentBlock.style.height = `${apptHeight}%`;
+                appointmentBlock.textContent = `Booked`;
+                dayColumn.appendChild(appointmentBlock);
+            });
         }
-
-        this.container.appendChild(grid);
-
-        document.getElementById('prev-month').addEventListener('click', () => this.changeMonth(-1));
-        document.getElementById('next-month').addEventListener('click', () => this.changeMonth(1));
     }
-
-    getDayAvailability(date) {
-        // Check if date is in the calendar data
-        if (this.calendarData.availability && this.calendarData.availability[date]) {
-            return this.calendarData.availability[date];
-        }
-        
-        // Fallback to mock data structure for compatibility
-        const mockAvailability = availability['tutor@example.com']?.find(a => a.date === date);
-        if (mockAvailability) {
-            return { status: 'available', ...mockAvailability };
-        }
-        
-        return null;
-    }
-
-    selectDate(date, dayAvailability) {
-        // Update selected date
-        this.selectedDate = date;
-        
-        // Trigger the integrated callback for direct calendar functionality
-        this.onDateSelect(date, dayAvailability, this.role);
-        
-        // Re-render to show selection
-        this.render();
-    }
-
-    changeMonth(direction) {
-        this.currentMonth += direction;
-        if (this.currentMonth < 0) {
-            this.currentMonth = 11;
-            this.currentYear--;
-        } else if (this.currentMonth > 11) {
-            this.currentMonth = 0;
-            this.currentYear++;
-        }
-        this.render();
-    }
-}
+};

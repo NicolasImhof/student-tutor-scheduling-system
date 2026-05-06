@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Register - Student-to-Tutor Scheduling System</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="login-view">
+        <div class="login-container">
+            <h1>Create an Account</h1>
+            <p style="text-align: center; color: var(--text-muted-color); margin-bottom: 2rem;">
+                Join our platform to start learning or teaching.
+            </p>
+
+            <form id="register-form">
+                <div class="form-group">
+                    <label for="first_name">First Name</label>
+                    <input type="text" id="first_name" name="first_name" required>
+                </div>
+                <div class="form-group">
+                    <label for="last_name">Last Name</label>
+                    <input type="text" id="last_name" name="last_name" required>
+                </div>
+                <div class="form-group">
+                    <label for="email">Email</label>
+                    <input type="email" id="email" name="email" required>
+                </div>
+                <div class="form-group">
+                    <label for="password">Password</label>
+                    <input type="password" id="password" name="password" required minlength="6">
+                </div>
+                <div class="form-group">
+                    <label for="role">I want to:</label>
+                    <select id="role" name="role" required>
+                        <option value="" disabled selected>Select your role</option>
+                        <option value="Student">Find a Tutor (Student)</option>
+                        <option value="Tutor">Become a Tutor</option>
+                    </select>
+                </div>
+                <button type="submit" class="btn btn-primary">Create Account</button>
+            </form>
+
+            <div id="registration-message" class="hidden" style="margin-top: 1rem; text-align: center;"></div>
+
+            <div style="text-align: center; margin-top: 1.5rem; padding-top: 1.5rem; border-top: 1px solid var(--border-color);">
+                <p style="color: var(--text-muted-color); margin-bottom: 1rem;">Already have an account?</p>
+                <a href="index.html" class="btn btn-secondary">Login</a>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="script.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const registerForm = document.getElementById('register-form');
+            const messageDiv = document.getElementById('registration-message');
+
+            registerForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const formData = new FormData(registerForm);
+                const userData = {
+                    first_name: formData.get('first_name'),
+                    last_name: formData.get('last_name'),
+                    email: formData.get('email'),
+                    password: formData.get('password'), // Plain text password for demo purposes
+                    role: formData.get('role'),
+                    approval_status: 'Pending' // Default status
+                };
+
+                // Basic validation
+                if (!userData.first_name || !userData.last_name || !userData.email || !userData.password || !userData.role) {
+                    showMessage('Please fill out all fields.', 'error');
+                    return;
+                }
+
+                try {
+                    // Insert new user into the database
+                    const { data, error } = await App.supabase
+                        .from('users')
+                        .insert([userData])
+                        .select();
+
+                    if (error) {
+                        console.error('Registration Error:', error);
+                        // Check for unique constraint violation
+                        if (error.code === '23505') {
+                            showMessage('An account with this email already exists.', 'error');
+                        } else {
+                            showMessage(`Registration failed: ${error.message}`, 'error');
+                        }
+                    } else {
+                        registerForm.reset();
+                        showMessage('Registration successful! Your account is pending approval from an administrator.', 'success');
+                    }
+                } catch (err) {
+                    console.error('An unexpected error occurred:', err);
+                    showMessage('An unexpected error occurred. Please try again.', 'error');
+                }
+            });
+
+            function showMessage(message, type) {
+                messageDiv.textContent = message;
+                messageDiv.className = type; // Use classes for styling (e.g., .success, .error)
+                setTimeout(() => { messageDiv.className = 'hidden'; }, 5000);
+            }
+        });
+    </script>
+</body>
+</html>
