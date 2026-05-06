@@ -6,6 +6,21 @@
 window.App = {
     supabase: null,
     currentUser: null,
+    viewPermissions: {
+        'find-tutor': ['Student'],
+        'my-appointments': ['Student', 'Tutor', 'Admin'],
+        'my-reviews': ['Student', 'Tutor'],
+        'my-availability': ['Tutor'],
+        'admin-dashboard': ['Admin', 'Super Admin'],
+        'super-admin-dashboard': ['Super Admin'],
+        'user-management': ['Super Admin'],
+        'calendar-management': ['Admin', 'Super Admin'],
+        'time-off-override': ['Super Admin'],
+        'review-deletion-requests': ['Super Admin'],
+        'review-management': ['Admin', 'Super Admin'],
+        'tutor-reviews': ['Student'],
+        'my-profile': ['Student', 'Tutor', 'Admin', 'Super Admin'],
+    },
 
     // 1. INITIALIZATION
     init() {
@@ -74,8 +89,16 @@ window.App = {
 
     // 3. AUTHENTICATION & VIEW MANAGEMENT
     async login(email, password) {
+        const loginButton = document.querySelector('#login-form button');
+        loginButton.disabled = true;
+        loginButton.innerHTML = '<span class="spinner"></span> Logging In...';
+
         console.log(`Attempting to login with email: ${email}`);
         const { data, error } = await this.supabase.from('users').select('*').eq('email', email).eq('approval_status', 'Approved').single();
+
+        // Always re-enable the button after the attempt
+        loginButton.disabled = false;
+        loginButton.innerHTML = 'Login';
 
         if (error) {
             if (error.code === 'PGRST116') { // No rows found
@@ -102,57 +125,65 @@ window.App = {
 
     logout() {
         this.currentUser = null;
-        this.showLoginView();
+        // A full page reload is the most robust way to clear all state.
+        window.location.reload();
     },
 
     async showLoginView() {
-        document.getElementById('dashboard-view').classList.add('hidden');
+        document.getElementById('dashboard-container').innerHTML = ''; // Clear the dashboard
         document.getElementById('login-view').classList.remove('hidden');
-        await this.fetchAndDisplayDemoCredentials();
     },
 
     showDashboardView() {
         document.getElementById('login-view').classList.add('hidden');
-        document.getElementById('dashboard-view').classList.remove('hidden');
+        this.renderDashboard(); // Render the dashboard dynamically
         document.getElementById('dashboard-title').textContent = `${this.currentUser.first_name}'s Dashboard`;
         this.loadDashboardNav();
         const defaultView = {
             'Student': 'find-tutor',
             'Tutor': 'my-availability',
-            'Admin': 'admin-dashboard'
+            'Admin': 'admin-dashboard',
+            'Super Admin': 'super-admin-dashboard'
         }[this.currentUser.role];
         this.loadDashboardView(defaultView);
     },
 
-    async fetchAndDisplayDemoCredentials() {
-        const roles = ['Student', 'Tutor', 'Admin', 'Super Admin'];
-        let demoHtml = '<h4>Demo Credentials</h4>';
-        
-        for (const role of roles) {
-            try {
-                const { data, error } = await this.supabase
-                    .from('users')
-                    .select('email, password')
-                    .eq('role', role)
-                    .eq('approval_status', 'Approved')
-                    .limit(1)
-                    .single();
 
-                if (error) throw error;
-
-                if (data) {
-                    demoHtml += `<p><strong>${role}:</strong> ${data.email} / ${data.password}</p>`;
-                } else {
-                    demoHtml += `<p><strong>${role}:</strong> No approved user available.</p>`;
-                }
-            } catch (err) {
-                demoHtml += `<p><strong>${role}:</strong> Error loading credentials.</p>`;
-            }
-        }
-        document.getElementById('demo-credentials').innerHTML = demoHtml;
-    },
 
     // 4. DASHBOARD NAVIGATION & VIEW ROUTING
+    renderDashboard() {
+        const dashboardContainer = document.getElementById('dashboard-container');
+        dashboardContainer.innerHTML = `
+            <div id="dashboard-view">
+                <header>
+                    <h1>Student-to-Tutor Scheduling</h1>
+                    <nav id="main-nav">
+                        <a href="#" id="logout-link">Logout</a>
+                    </nav>
+                </header>
+
+                <div id="dashboard-nav-container">
+                    <h2 id="dashboard-title">Dashboard</h2>
+                    <nav id="dashboard-nav"></nav>
+                </div>
+
+                <main>
+                    <div id="dashboard-content"></div>
+                    <div id="calendar-container"></div>
+                </main>
+
+                <footer>
+                    <p>&copy; 2026 Student-to-Tutor Scheduling</p>
+                </footer>
+            </div>
+        `;
+        // Re-add the event listener for the new logout link
+        document.getElementById('logout-link').addEventListener('click', (e) => {
+            e.preventDefault();
+            this.logout();
+        });
+    },
+
     loadDashboardNav() {
         const nav = document.getElementById('dashboard-nav');
         if (!nav) return;
@@ -205,8 +236,11 @@ window.App = {
             if (link.getAttribute('href') === `#${view}`) link.classList.add('active');
         });
 
-        // The calendar is now loaded dynamically by the specific views that need it.
-        // This avoids showing it on pages like 'My Profile' or 'My Reviews'.
+        const allowedRoles = this.viewPermissions[view];
+        if (!allowedRoles || !allowedRoles.includes(this.currentUser.role)) {
+            dashboardContent.innerHTML = `<h2>Access Denied</h2><p>You do not have permission to view this page.</p>`;
+            return;
+        }
 
         switch (view) {
             case 'admin-dashboard': this.loadAdminDashboard(); break;
@@ -229,8 +263,8 @@ window.App = {
     // 5. VIEW IMPLEMENTATIONS
     loadMyProfileView() {
         let content = `<h2>My Profile</h2><div class="profile-card"><p><strong>Name:</strong> ${this.currentUser.first_name} ${this.currentUser.last_name}</p><p><strong>Email:</strong> ${this.currentUser.email}</p><p><strong>Role:</strong> ${this.currentUser.role}</p>`;
-        if (this.currentUser.role === 'Student' && this.currentUser.major) {
-            content += `<p><strong>Major:</strong> ${this.currentUser.major}</p>`;
+        if (this.currentUser.role === 'Student') {
+            content += `<p><strong>Major:</strong> ${this.currentUser.major || 'N/A'}</p>`;
         }
         content += '</div>';
         document.getElementById('dashboard-content').innerHTML = content;
@@ -238,7 +272,7 @@ window.App = {
 
     async loadMyReviewsView() {
         const contentEl = document.getElementById('dashboard-content');
-        contentEl.innerHTML = '<h2>My Reviews</h2><p>This section is under construction. You will be able to see reviews from students here.</p>';
+        contentEl.innerHTML = '<h2>My Reviews</h2><p>You have not written or received any reviews yet.</p>';
         // TODO: Implement fetching and displaying reviews for the current user (both for tutors and students).
     },
 
@@ -336,6 +370,11 @@ window.App = {
                 throw error;
             }
 
+            if (data.length === 0) {
+                contentEl.innerHTML = `<h2>My Appointments</h2><p>You have no upcoming or past appointments.</p>`;
+                return;
+            }
+
             let appointmentsHTML = data.map(appt => {
                 const opponent = isStudent ? `${appt.tutor.first_name} ${appt.tutor.last_name}` : `${appt.student.first_name} ${appt.student.last_name}`;
                 let reviewButton = '';
@@ -384,7 +423,7 @@ window.App = {
         const contentEl = document.getElementById('dashboard-content');
         contentEl.innerHTML = `<h2>Find a Tutor</h2><div id="tutor-list-container">Loading...</div>`;
 
-        const { data, error } = await this.supabase.rpc('get_tutors_with_ratings');
+        const { data, error } = await this.supabase.rpc('get_tutors_for_student_view');
 
         if (error) {
             console.error('Error fetching tutors with ratings:', error);
@@ -392,9 +431,18 @@ window.App = {
             return;
         }
 
+        if (data.length === 0) {
+            document.getElementById('tutor-list-container').innerHTML = '<p>No tutors are available at this time. Please check back later.</p>';
+            return;
+        }
+
         const tutorsHTML = data.map(tutor => {
             const avgRating = tutor.average_rating ? tutor.average_rating.toFixed(1) : 'N/A';
             const starRating = tutor.average_rating ? '★'.repeat(Math.round(tutor.average_rating)) + '☆'.repeat(5 - Math.round(tutor.average_rating)) : 'No reviews yet';
+
+            const specializationsHTML = tutor.specializations && tutor.specializations.length > 0 
+                ? `<h5>Specialties:</h5><div class="specialties-pills">${tutor.specializations.map(s => `<span class="pill">${s}</span>`).join('')}</div>` 
+                : '';
 
             return `
                 <div class="tutor-card-ratemyprof">
@@ -406,6 +454,9 @@ window.App = {
                         <div class="rating-box"><span>${avgRating}</span> / 5</div>
                         <div class="star-display">${starRating}</div>
                         <div class="review-count">Based on ${tutor.review_count} reviews</div>
+                    </div>
+                    <div class="tutor-specializations">
+                        ${specializationsHTML}
                     </div>
                     <div class="tutor-actions">
                         <button class="btn btn-primary view-reviews-btn" data-tutor-id="${tutor.user_id}">View Reviews</button>
@@ -473,22 +524,36 @@ window.App = {
         const adminCategory = this.currentUser.category;
         contentEl.innerHTML = `<h2>Admin Dashboard (${adminCategory})</h2>`;
 
-        // Fetch tutors in the admin's category
-        const { data: tutors, error } = await this.supabase.from('users').select('*').eq('role', 'Tutor').eq('category', adminCategory);
-        if (error || !tutors.length) {
-            contentEl.innerHTML += '<p>No tutors found in your category.</p>';
+        // Fetch pending tutors
+        const { data: pendingTutors, error: pendingError } = await this.supabase.from('users').select('*').eq('role', 'Tutor').eq('category', adminCategory).eq('approval_status', 'Pending');
+        if (pendingError) {
+            contentEl.innerHTML += '<p class="error">Failed to load pending tutors.</p>';
+        } else {
+            let pendingHtml = '<h3>Pending Tutor Approvals</h3>';
+            if (pendingTutors.length > 0) {
+                pendingHtml += this.createUsersTable(pendingTutors, true);
+            } else {
+                pendingHtml += '<p>No tutors are currently pending approval in your category.</p>';
+            }
+            contentEl.innerHTML += pendingHtml;
+        }
+
+        // Fetch approved tutors for schedule view
+        const { data: approvedTutors, error: approvedError } = await this.supabase.from('users').select('*').eq('role', 'Tutor').eq('category', adminCategory).eq('approval_status', 'Approved');
+        if (approvedError) {
+            contentEl.innerHTML += '<p class="error">Failed to load tutors for schedule view.</p>';
             return;
         }
 
-        let html = '<div class="admin-controls">';
-        html += '<label for="tutor-select">View Schedule For:</label>';
-        html += '<select id="tutor-select"><option value="">Select a Tutor</option>';
-        tutors.forEach(tutor => {
-            html += `<option value="${tutor.user_id}">${tutor.first_name} ${tutor.last_name}</option>`;
+        let scheduleHtml = '<div class="admin-controls"><h3>View Tutor Schedules</h3>';
+        scheduleHtml += '<label for="tutor-select">View Schedule For:</label>';
+        scheduleHtml += '<select id="tutor-select"><option value="">Select a Tutor</option>';
+        approvedTutors.forEach(tutor => {
+            scheduleHtml += `<option value="${tutor.user_id}">${tutor.first_name} ${tutor.last_name}</option>`;
         });
-        html += '</select></div>';
-        html += '<div id="admin-calendar-container"></div>';
-        contentEl.innerHTML += html;
+        scheduleHtml += '</select></div>';
+        scheduleHtml += '<div id="admin-calendar-container"></div>';
+        contentEl.innerHTML += scheduleHtml;
 
         document.getElementById('tutor-select').addEventListener('change', async (e) => {
             const tutorId = e.target.value;
@@ -497,7 +562,7 @@ window.App = {
                 calendarContainer.innerHTML = '';
                 return;
             }
-            const selectedTutor = tutors.find(t => t.user_id == tutorId);
+            const selectedTutor = approvedTutors.find(t => t.user_id == tutorId);
             window.Calendar.init(selectedTutor, this.currentUser, this.supabase, null, calendarContainer);
         });
     },

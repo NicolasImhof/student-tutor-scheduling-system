@@ -30,6 +30,7 @@
                 <div class="form-group">
                     <label for="password">Password</label>
                     <input type="password" id="password" name="password" required minlength="6">
+                    <small>Minimum 6 characters required.</small>
                 </div>
                 <div class="form-group">
                     <label for="role">I want to:</label>
@@ -60,11 +61,26 @@
 
             registerForm.addEventListener('submit', async (e) => {
                 e.preventDefault();
+                const registerButton = registerForm.querySelector('button[type="submit"]');
+                registerButton.disabled = true;
+                registerButton.innerHTML = '<span class="spinner"></span> Creating Account...';
+
                 const formData = new FormData(registerForm);
+                const email = formData.get('email');
+
+                // Proactive email check
+                const { data: existingUser, error: checkError } = await App.supabase.from('users').select('email').eq('email', email).single();
+                if (existingUser) {
+                    showMessage('An account with this email already exists.', 'error');
+                    registerButton.disabled = false;
+                    registerButton.innerHTML = 'Create Account';
+                    return;
+                }
+
                 const userData = {
                     first_name: formData.get('first_name'),
                     last_name: formData.get('last_name'),
-                    email: formData.get('email'),
+                    email: email,
                     password: formData.get('password'), // Plain text password for demo purposes
                     role: formData.get('role'),
                     approval_status: 'Pending' // Default status
@@ -73,6 +89,8 @@
                 // Basic validation
                 if (!userData.first_name || !userData.last_name || !userData.email || !userData.password || !userData.role) {
                     showMessage('Please fill out all fields.', 'error');
+                    registerButton.disabled = false;
+                    registerButton.innerHTML = 'Create Account';
                     return;
                 }
 
@@ -85,12 +103,7 @@
 
                     if (error) {
                         console.error('Registration Error:', error);
-                        // Check for unique constraint violation
-                        if (error.code === '23505') {
-                            showMessage('An account with this email already exists.', 'error');
-                        } else {
-                            showMessage(`Registration failed: ${error.message}`, 'error');
-                        }
+                        showMessage(`Registration failed: ${error.message}`, 'error');
                     } else {
                         registerForm.reset();
                         showMessage('Registration successful! Your account is pending approval from an administrator.', 'success');
@@ -98,6 +111,9 @@
                 } catch (err) {
                     console.error('An unexpected error occurred:', err);
                     showMessage('An unexpected error occurred. Please try again.', 'error');
+                } finally {
+                    registerButton.disabled = false;
+                    registerButton.innerHTML = 'Create Account';
                 }
             });
 

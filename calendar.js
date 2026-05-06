@@ -87,7 +87,12 @@ window.Calendar = {
 
         // Fetch data for the week
         const { data: workingHours } = await this.supabase.from('working_hours').select('*').eq('tutor_id', this.tutor.user_id);
-        const { data: appointments } = await this.supabase.from('appointments_enhanced').select('*').eq('tutor_id', this.tutor.user_id);
+        const { data: appointments } = await this.supabase
+            .from('appointments_enhanced')
+            .select('*, student:users!student_id(first_name)')
+            .eq('tutor_id', this.tutor.user_id)
+            .gte('start_time', startOfWeek.toISOString())
+            .lte('start_time', endOfWeek.toISOString());
 
         // Render availability and appointments
         for (const day of days) {
@@ -115,9 +120,11 @@ window.Calendar = {
                     for (let m = 0; m < 60; m += 30) {
                         const time = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
                         const slotTop = ((h * 60 + m) / 1440) * 100;
-                        const isBooked = appointments.some(appt => new Date(appt.start_time).getTime() === new Date(`${dayStr}T${time}`).getTime());
+                        const slotDateTime = new Date(`${dayStr}T${time}`);
+                        const isBooked = appointments.some(appt => new Date(appt.start_time).getTime() === slotDateTime.getTime());
+                        const isInThePast = slotDateTime < new Date();
 
-                        if (!isBooked) {
+                        if (!isBooked && !isInThePast) {
                             const slotButton = document.createElement('button');
                             slotButton.className = 'booking-slot-btn';
                             slotButton.dataset.date = dayStr;
@@ -135,13 +142,13 @@ window.Calendar = {
                 const apptStart = new Date(appt.start_time);
                 const apptEnd = new Date(appt.end_time);
                 const apptTop = ((apptStart.getHours() * 60 + apptStart.getMinutes()) / 1440) * 100;
-                const apptHeight = ((apptEnd - apptStart) / 60000) / 1440 * 100;
+                const apptHeight = ((apptEnd.getTime() - apptStart.getTime()) / 60000) / 1440 * 100;
 
                 const appointmentBlock = document.createElement('div');
                 appointmentBlock.className = 'appointment-block';
                 appointmentBlock.style.top = `${apptTop}%`;
                 appointmentBlock.style.height = `${apptHeight}%`;
-                appointmentBlock.textContent = `Booked`;
+                appointmentBlock.textContent = `Booked with ${appt.student.first_name}`;
                 dayColumn.appendChild(appointmentBlock);
             });
         }

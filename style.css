@@ -437,6 +437,38 @@ footer {
 }
 
 /* =====================================================================================
+   RESPONSIVE DESIGN
+   ===================================================================================== */
+@media (max-width: 768px) {
+    body {
+        grid-template-columns: 1fr;
+        grid-template-areas:
+            "header"
+            "nav"
+            "main";
+    }
+
+    #dashboard-nav-container {
+        position: static;
+        height: auto;
+        border-right: none;
+        border-bottom: 1px solid var(--border-color);
+    }
+
+    #dashboard-nav {
+        display: flex;
+        flex-direction: row;
+        justify-content: center;
+        flex-wrap: wrap;
+        padding: 0.5rem;
+    }
+
+    .nav-link {
+        margin: 0.25rem 0.5rem;
+    }
+}
+
+/* =====================================================================================
    MODAL STYLES
    ===================================================================================== */
 .modal-backdrop {
@@ -531,6 +563,7 @@ footer {
    BUTTON STYLES
    ===================================================================================== */
 .btn {
+    position: relative; /* Needed for the spinner */
     padding: 10px 15px;
     border: none;
     border-radius: 5px;
@@ -538,9 +571,27 @@ footer {
     font-size: 1rem;
     transition: background-color 0.2s;
     text-decoration: none;
-    display: inline-block;
+    display: inline-flex; /* Use flexbox for alignment */
+    align-items: center;
+    justify-content: center;
     text-align: center;
 }
+
+.btn .spinner {
+    display: inline-block;
+    width: 16px;
+    height: 16px;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-radius: 50%;
+    border-top-color: #fff;
+    animation: spin 1s ease-in-out infinite;
+    margin-right: 8px;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
 
 .btn-primary {
     background-color: var(--primary-color);
@@ -877,6 +928,25 @@ footer {
 }
 
 /* New Rate My Professor Style Review Cards */
+.tutor-specializations {
+    margin-top: 1rem;
+}
+
+.specialties-pills {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.pill {
+    background-color: var(--hover-bg-color);
+    color: var(--text-muted-color);
+    padding: 0.25rem 0.75rem;
+    border-radius: 1rem;
+    font-size: 0.8rem;
+    font-weight: 500;
+}
+
 .tutor-reviews-header {
     padding-bottom: 1.5rem;
     margin-bottom: 1.5rem;

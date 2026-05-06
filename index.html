@@ -30,7 +30,7 @@
                 </div>
                 <button type="submit" class="btn btn-primary">Login</button>
             </form>
-            <div id="demo-credentials"></div>
+
             <div style="text-align: center; margin-top: 1.5rem; padding-top: 1.5rem; border-top: 1px solid var(--border-color);">
                 <p style="color: var(--text-muted-color); margin-bottom: 1rem;">Don't have an account?</p>
                 <a href="register.html" class="btn btn-secondary">Create Account</a>
@@ -38,32 +38,8 @@
         </div>
     </div>
 
-    <!-- =====================================================================================
-       DASHBOARD VIEW (Hidden by default)
-       - This view is shown only after a successful login.
-       ===================================================================================== -->
-    <div id="dashboard-view" class="hidden">
-        <header>
-            <h1>Student-to-Tutor Scheduling</h1>
-            <nav id="main-nav">
-                <a href="#" id="logout-link">Logout</a>
-            </nav>
-        </header>
-
-        <div id="dashboard-nav-container">
-            <h2 id="dashboard-title">Dashboard</h2>
-            <nav id="dashboard-nav"></nav>
-        </div>
-
-        <main>
-            <div id="dashboard-content"></div>
-            <div id="calendar-container"></div>
-        </main>
-
-        <footer>
-            <p>&copy; 2026 Student-to-Tutor Scheduling</p>
-        </footer>
-    </div>
+    <!-- The dashboard will be dynamically rendered here by script.js -->
+    <div id="dashboard-container"></div>
 
     <!-- =====================================================================================
        MODAL CONTAINER
