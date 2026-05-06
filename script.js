@@ -40,10 +40,7 @@ window.App = {
             this.login(email, password);
         });
 
-        document.getElementById('logout-link').addEventListener('click', (e) => {
-            e.preventDefault();
-            this.logout();
-        });
+
 
         const dashboardContent = document.getElementById('dashboard-content');
         if (dashboardContent) {
