@@ -43,25 +43,22 @@
     padding: 0.25rem 0.5rem;
     cursor: pointer;
     border-radius: 4px;
+    color: var(--primary-color);
+    font-weight: 600;
 }
 
 .calendar-header button:hover {
-    background-color: var(--calendar-border);
-}
-
-.calendar-view-toggle {
-    display: flex;
-    gap: 0.5rem;
+    background-color: var(--primary-color-light);
 }
 
 .calendar-view-toggle button {
-    border: 1px solid var(--calendar-border);
+    border: 1px solid var(--primary-color-dark);
 }
 
 .calendar-view-toggle button.active {
-    background-color: var(--event-bg);
-    color: var(--event-text);
-    border-color: var(--event-bg);
+    background-color: var(--primary-color);
+    color: var(--button-text-color);
+    border-color: var(--primary-color);
 }
 
 .calendar-grid-month {

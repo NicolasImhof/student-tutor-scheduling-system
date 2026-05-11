@@ -32,7 +32,7 @@ All users access features through a **sidebar navigation system** with role-spec
     -   **Tabs**: My Profile, Super Admin Dashboard, User Management, Calendar Management, Time-Off Override, Review Deletion Requests
     -   **Default View**: `Super Admin Dashboard`
     -   **Capabilities**: Complete control over the system. Can create, edit, and delete any user account; approves new user registration requests; sets system-wide holidays and default work hours; override admin time-off decisions; and approve review deletion requests.
-    -   **Special Features**: 
+    -   **Special Features**:
         - Dashboard shows system statistics and quick actions
         - Can override admin time-off decisions
         - Calendar management for system-wide events

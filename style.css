@@ -4,12 +4,15 @@
    ===================================================================================== */
 :root {
     --primary-color: #007bff;
+    --primary-color-light: #cce5ff;
+    --primary-color-dark: #0056b3;
     --primary-hover-color: #0056b3;
     --secondary-color: #6c757d;
     --secondary-hover-color: #545b62;
     --danger-color: #dc3545;
     --danger-hover-color: #c82333;
     --text-color: #212529;
+    --button-text-color: #ffffff;
     --text-muted-color: #6c757d;
     --border-color: #dee2e6;
     --surface-color: #ffffff;
@@ -26,21 +29,29 @@
    ===================================================================================== */
 .role-student {
     --primary-color: #28a745; /* Green */
+    --primary-color-light: #d4edda;
+    --primary-color-dark: #1e7e34;
     --primary-hover-color: #218838;
 }
 
 .role-tutor {
     --primary-color: #17a2b8; /* Blue */
+    --primary-color-light: #d1ecf1;
+    --primary-color-dark: #117a8b;
     --primary-hover-color: #138496;
 }
 
 .role-admin {
     --primary-color: #6f42c1; /* Purple */
+    --primary-color-light: #e2d9f3;
+    --primary-color-dark: #5833a2;
     --primary-hover-color: #5a32a3;
 }
 
 .role-super-admin {
     --primary-color: #dc3545; /* Red */
+    --primary-color-light: #f5c6cb;
+    --primary-color-dark: #b21f2d;
     --primary-hover-color: #c82333;
 }
 
@@ -219,14 +230,17 @@ footer {
     box-sizing: border-box;
 }
 
-#login-form input[type="email"],
-#login-form input[type="password"] {
+.login-container form input[type="email"],
+.login-container form input[type="password"],
+.login-container form input[type="text"],
+.login-container form select {
     font-size: 1rem;
     line-height: 1.5;
     transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
 }
 
-#login-form input:focus {
+.login-container form input:focus,
+.login-container form select:focus {
     color: #495057;
     background-color: #fff;
     border-color: #80bdff;
@@ -350,13 +364,6 @@ footer {
     color: var(--text-muted-color);
     font-size: 0.85rem;
     font-style: italic;
-}
-
-.modal-actions {
-    margin-top: 1.5rem;
-    display: flex;
-    justify-content: flex-end;
-    gap: 1rem;
 }
 
 /* Review Management Styles */
@@ -711,5 +718,36 @@ footer {
 .working-hours {
     background-color: #e3f2fd; /* A light blue to indicate availability */
 }
+
+/* --- Booking Modal Time Slot Styles --- */
+.time-slots-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-top: 1rem;
+}
+
+.time-slot-btn {
+    border: 1px solid var(--border-color);
+    background-color: var(--surface-color);
+    color: var(--text-color);
+    padding: 0.5rem 1rem;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.2s, color 0.2s, border-color 0.2s;
+}
+
+.time-slot-btn:hover {
+    background-color: var(--hover-bg-color);
+}
+
+.time-slot-btn.active {
+    background-color: var(--primary-color) !important;
+    color: var(--button-text-color) !important;
+    border-color: var(--primary-color) !important;
+    font-weight: 600;
+    transform: scale(1.05);
+}
+
 
 

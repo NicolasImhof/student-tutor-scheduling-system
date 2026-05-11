@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Register - Student-to-Tutor Scheduling System</title>
     <link rel="stylesheet" href="style.css">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🎓</text></svg>">
 </head>
 <body>
     <div id="login-view">
@@ -17,24 +18,24 @@
             <form id="register-form">
                 <div class="form-group">
                     <label for="first_name">First Name</label>
-                    <input type="text" id="first_name" name="first_name" required>
+                    <input type="text" id="first_name" name="first_name" class="form-control" required>
                 </div>
                 <div class="form-group">
                     <label for="last_name">Last Name</label>
-                    <input type="text" id="last_name" name="last_name" required>
+                    <input type="text" id="last_name" name="last_name" class="form-control" required>
                 </div>
                 <div class="form-group">
                     <label for="email">Email</label>
-                    <input type="email" id="email" name="email" required>
+                    <input type="email" id="email" name="email" class="form-control" required>
                 </div>
                 <div class="form-group">
                     <label for="password">Password</label>
-                    <input type="password" id="password" name="password" required minlength="6">
+                    <input type="password" id="password" name="password" class="form-control" required minlength="6">
                     <small>Minimum 6 characters required.</small>
                 </div>
                 <div class="form-group">
                     <label for="role">I want to:</label>
-                    <select id="role" name="role" required>
+                    <select id="role" name="role" class="form-control" required>
                         <option value="" disabled selected>Select your role</option>
                         <option value="Student">Find a Tutor (Student)</option>
                         <option value="Tutor">Become a Tutor</option>
@@ -94,23 +95,34 @@
                     return;
                 }
 
+                // The new, simplified flow. The database trigger will handle profile creation.
                 try {
-                    // Insert new user into the database
-                    const { data, error } = await App.supabase
-                        .from('users')
-                        .insert([userData])
-                        .select();
+                    const { data, error } = await App.supabase.auth.signUp({
+                        email: userData.email,
+                        password: userData.password,
+                        options: {
+                            data: { // Pass metadata to the trigger
+                                first_name: userData.first_name,
+                                last_name: userData.last_name,
+                                role: userData.role
+                            }
+                        }
+                    });
 
                     if (error) {
-                        console.error('Registration Error:', error);
-                        showMessage(`Registration failed: ${error.message}`, 'error');
-                    } else {
-                        registerForm.reset();
-                        showMessage('Registration successful! Your account is pending approval from an administrator.', 'success');
+                        throw error;
                     }
+
+                    registerForm.reset();
+                    showMessage('Registration successful! Your account is pending approval. Please check your email to verify your account.', 'success');
+
                 } catch (err) {
                     console.error('An unexpected error occurred:', err);
-                    showMessage('An unexpected error occurred. Please try again.', 'error');
+                    if (err.message && err.message.includes('User already registered')) {
+                        showMessage('This email is already registered. Please try logging in or check your email for a verification link.', 'error');
+                    } else {
+                        showMessage(err.message, 'error');
+                    }
                 } finally {
                     registerButton.disabled = false;
                     registerButton.innerHTML = 'Create Account';
