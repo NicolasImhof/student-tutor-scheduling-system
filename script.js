@@ -217,7 +217,7 @@ const App = {
                 </div>
                 <div>
                     <span class="status-badge">${a.status}</span>
-                    ${a.status === 'Scheduled' ? `<button class="btn btn-sm btn-danger ml-2 cancel-appt" data-id="${a.appointment_id}">Cancel</button>` : ''}
+                    ${a.status === 'Scheduled' && (this.currentUser.role === 'Student' || this.currentUser.role === 'Tutor') ? `<button class="btn btn-sm btn-danger ml-2 cancel-appt" data-id="${a.appointment_id}">Cancel</button>` : ''}
                 </div>
             </div>
         `).join('');
