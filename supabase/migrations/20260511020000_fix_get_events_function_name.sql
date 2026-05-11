@@ -1,0 +1,28 @@
+
+DROP FUNCTION IF EXISTS get_events_for_month(INT, INT);
+
+CREATE OR REPLACE FUNCTION get_events_for_month(p_year INT, p_month INT)
+RETURNS TABLE (name TEXT, start_date DATE, end_date DATE, event_type TEXT, is_recurring BOOLEAN)
+AS $$
+BEGIN
+    RETURN QUERY
+    -- Non-recurring events
+    SELECT s.name::TEXT, s.start_date::DATE, s.end_date::DATE, s.event_type::TEXT, s.is_recurring
+    FROM public.system_events s
+    WHERE NOT s.is_recurring
+      AND DATE_PART('year', s.start_date) = p_year
+      AND DATE_PART('month', s.start_date) = p_month
+
+    UNION ALL
+
+    -- Recurring events
+    SELECT s.name::TEXT, 
+           ((s.start_date - (DATE_PART('year', s.start_date) * INTERVAL '1 year')) + (p_year * INTERVAL '1 year'))::DATE AS start_date,
+           ((s.end_date - (DATE_PART('year', s.end_date) * INTERVAL '1 year')) + (p_year * INTERVAL '1 year'))::DATE AS end_date,
+           s.event_type::TEXT, 
+           s.is_recurring
+    FROM public.system_events s
+    WHERE s.is_recurring
+      AND DATE_PART('month', s.start_date) = p_month;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;

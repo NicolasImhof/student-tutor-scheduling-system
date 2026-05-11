@@ -1,0 +1,1 @@
+DROP FUNCTION IF EXISTS create_system_event_and_cancel_appointments(TEXT, DATE, TEXT);

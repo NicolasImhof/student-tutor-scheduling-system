@@ -125,3 +125,24 @@ All users access features through a **sidebar navigation system** with role-spec
 -   **Weekly View**: The calendar has been redesigned as a modern, weekly view, similar to the scheduling interfaces in MS Teams or Workday.
 -   **Clear Time Slots**: Available, booked, and past time slots are clearly distinguished by color and style.
 -   **Tutor Availability**: Tutors can easily set their weekly working hours, and this availability is immediately reflected in the calendar.
+
+---
+
+## 10. Data Seeding and Theming (v10.0)
+
+### Comprehensive Seed Data
+- **Rich Data Set**: The database must be seeded with a rich, interconnected set of data to allow for thorough testing of all application features.
+- **Complete User Profiles**: Every user in the seed data should have at least one of every relevant interaction. For example:
+    - Every tutor should have at least one review.
+    - Every student should have made at least one review.
+    - The database should contain at least one pending account request for a new tutor.
+    - The database should contain at least one pending review deletion request.
+
+### Role-Based Color Theming
+- **Visual Distinction**: The UI will use a distinct color theme for each user role to provide immediate visual context to the user.
+- **Color Palette**:
+    - **Student**: Green
+    - **Tutor**: Blue
+    - **Admin**: Purple
+    - **Super Admin**: Red
+- **Implementation**: The color theme will be applied by adding a role-specific class to the `<body>` element upon login (e.g., `role-student`) and using CSS variables to theme key UI components like headers, buttons, and active navigation links.
