@@ -159,16 +159,22 @@ const App = {
     },
 
     getAppointmentDisplayName(appt) {
-        const studentName = (appt.student_first_name || appt.student_last_name) ? `${appt.student_first_name || ''} ${appt.student_last_name || ''}`.trim() : 'Unknown Student';
-        const tutorName = (appt.tutor_first_name || appt.tutor_last_name) ? `${appt.tutor_first_name || ''} ${appt.tutor_last_name || ''}`.trim() : 'Tutor no longer available';
-
+        let displayName;
         switch (this.currentUser.role) {
-            case 'Student': return tutorName;
-            case 'Tutor': return studentName;
+            case 'Student':
+                displayName = appt.tutor_full_name;
+                break;
+            case 'Tutor':
+                displayName = appt.student_full_name;
+                break;
             case 'Admin':
-            case 'Super Admin': return `${tutorName} & ${studentName}`;
-            default: return 'Appointment';
+            case 'Super Admin':
+                displayName = `${appt.tutor_full_name} & ${appt.student_full_name}`;
+                break;
+            default:
+                displayName = 'Appointment';
         }
+        return displayName;
     },
 
     // VIEWS
@@ -238,28 +244,26 @@ const App = {
         
         const startTime = new Date(appt.start_time);
         const endTime = new Date(appt.end_time);
-        const studentName = (appt.student_first_name || appt.student_last_name) ? `${appt.student_first_name || ''} ${appt.student_last_name || ''}`.trim() : 'Unknown Student';
-        const tutorName = (appt.tutor_first_name || appt.tutor_last_name) ? `${appt.tutor_first_name || ''} ${appt.tutor_last_name || ''}`.trim() : 'Tutor no longer available';
 
         let detailsHtml = '';
         switch (this.currentUser.role) {
             case 'Student':
                 detailsHtml = `
-                    <p><strong>Tutor:</strong> ${tutorName}</p>
+                    <p><strong>Tutor:</strong> ${appt.tutor_full_name}</p>
                     <p><strong>Subject:</strong> ${appt.course_name || 'N/A'}</p>
                 `;
                 break;
             case 'Tutor':
                 detailsHtml = `
-                    <p><strong>Student:</strong> ${studentName}</p>
+                    <p><strong>Student:</strong> ${appt.student_full_name}</p>
                     <p><strong>Subject:</strong> ${appt.course_name || 'N/A'}</p>
                 `;
                 break;
             case 'Admin':
             case 'Super Admin':
                 detailsHtml = `
-                    <p><strong>Tutor:</strong> ${tutorName}</p>
-                    <p><strong>Student:</strong> ${studentName}</p>
+                    <p><strong>Tutor:</strong> ${appt.tutor_full_name}</p>
+                    <p><strong>Student:</strong> ${appt.student_full_name}</p>
                     <p><strong>Subject:</strong> ${appt.course_name || 'N/A'}</p>
                 `;
                 break;
@@ -691,7 +695,7 @@ const App = {
             e.preventDefault();
             const fd = new FormData(e.target);
             const isRecurring = document.getElementById('is_recurring').checked;
-            const { error } = await this.supabase.rpc('create_system_event', {
+            const { error } = await this.supabase.rpc('create_event_and_cancel_appointments', {
                 p_name: fd.get('name'), p_start_date: fd.get('start'), p_end_date: fd.get('end'), 
                 p_event_type: fd.get('type'), p_is_recurring: isRecurring
             });
