@@ -5,13 +5,15 @@ window.Calendar = {
     view: 'week', // 'month' or 'week'
     container: null,
     viewDate: new Date(new Date().toISOString().split('T')[0] + 'T00:00:00Z'),
+    onAppointmentClick: null,
 
-    init(currentUser, tutorId, supabase, view, container) {
+    init(currentUser, tutorId, supabase, view, container, onAppointmentClick) {
         this.currentUser = currentUser;
         this.tutorId = tutorId; // This is for specific tutor booking view
         this.supabase = supabase;
         this.view = view || 'week';
         this.container = container;
+        this.onAppointmentClick = onAppointmentClick;
         this.render();
     },
 
@@ -75,8 +77,8 @@ window.Calendar = {
         
         let gridHtml = '<div class="calendar-grid-week">';
         gridHtml += '<div class="time-ruler"><div class="day-header"></div>';
-        for (let hour = 8; hour < 21; hour++) { // Limit to 8am - 9pm for better UI
-            gridHtml += `<div class="time-label">${hour}:00</div>`;
+        for (let hour = 0; hour < 24; hour++) {
+            gridHtml += `<div class="time-label">${hour.toString().padStart(2, '0')}:00</div>`;
         }
         gridHtml += '</div>';
         
@@ -88,8 +90,8 @@ window.Calendar = {
             
             gridHtml += `<div class="day-column ${isWeekend ? 'disabled' : ''}" data-date="${dateString}">`;
             gridHtml += `<div class="day-header">${date.toLocaleDateString('en-US', { weekday: 'short', timeZone: 'UTC' })} ${date.getUTCDate()}</div>`;
-            for (let hour = 8; hour < 21; hour++) {
-                gridHtml += `<div class="time-slot" data-hour="${hour}" style="grid-row: ${hour - 8 + 2}"></div>`;
+            for (let hour = 0; hour < 24; hour++) {
+                gridHtml += `<div class="time-slot" data-hour="${hour}" style="grid-row: ${hour + 2}"></div>`;
             }
             gridHtml += '</div>';
         }
@@ -142,7 +144,7 @@ window.Calendar = {
         }
 
         const promises = [
-            this.supabase.rpc('get_appointments_for_calendar', rpcParams),
+            this.supabase.rpc('get_calendar_appointments', rpcParams),
             this.supabase.rpc('get_calendar_events', {
                 p_start_date: start.toISOString().split('T')[0],
                 p_end_date: end.toISOString().split('T')[0],
@@ -195,7 +197,13 @@ window.Calendar = {
 
             if (this.view === 'month') {
                 const list = cell.querySelector('.events-list');
-                if (list) list.innerHTML += `<div class="event-item ${appt.status.toLowerCase()}">${appt.tutor_first_name} & ${appt.student_first_name}</div>`;
+                if (list) {
+                    const eventItem = document.createElement('div');
+                    eventItem.className = `event-item ${appt.status.toLowerCase()}`;
+                    eventItem.textContent = `${appt.tutor_first_name} & ${appt.student_first_name}`;
+                    eventItem.onclick = () => this.onAppointmentClick(appt);
+                    list.appendChild(eventItem);
+                }
             } else {
                 const apptEnd = new Date(appt.end_time);
                 const startRow = Math.max(2, apptStart.getUTCHours() - 8 + 2);
@@ -206,6 +214,7 @@ window.Calendar = {
                 block.className = `event-block ${appt.status.toLowerCase()}`;
                 block.style.gridRow = `${startRow} / ${endRow}`;
                 block.innerHTML = `<strong>${appt.tutor_first_name}</strong><br>${apptStart.getUTCHours()}:00`;
+                block.onclick = () => this.onAppointmentClick(appt);
                 cell.appendChild(block);
             }
         });
@@ -227,5 +236,5 @@ window.Calendar = {
                 });
             });
         }
-    }
+    },
 };

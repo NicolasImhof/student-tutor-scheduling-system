@@ -527,6 +527,14 @@ footer {
     margin-top: 1px;
 }
 
+.event-item.canceled {
+    background-color: #dc3545; /* Red */
+    color: white;
+    padding: 1px 3px;
+    border-radius: 2px;
+    margin-top: 1px;
+}
+
 .event-item.cancelled {
     background-color: #dc3545; /* Red */
     color: white;
@@ -644,6 +652,10 @@ footer {
 
 .event-block.completed {
     background-color: #28a745; /* Green */
+}
+
+.event-block.canceled {
+    background-color: #dc3545; /* Red */
 }
 
 .event-block.cancelled {

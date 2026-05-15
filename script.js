@@ -45,11 +45,15 @@ const App = {
 
     // AUTH
     async login() {
-        const email = document.getElementById('email').value;
-        const password = document.getElementById('password').value;
-        const { data, error } = await this.supabase.auth.signInWithPassword({ email, password });
-        if (error) alert(`Login failed: ${error.message}`);
-        else if (data.user) this.checkSession();
+        try {
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            const { data, error } = await this.supabase.auth.signInWithPassword({ email, password });
+            if (error) throw error;
+            if (data.user) this.checkSession();
+        } catch (error) {
+            alert(`Login failed: ${error.message}`);
+        }
     },
 
     async logout() {
@@ -192,83 +196,224 @@ const App = {
     },
 
     async renderMyAppointments(container) {
-        container.innerHTML = `<section class="dashboard-section"><h2>My Appointments</h2><div id="cal-container" class="calendar-container"></div><div id="appt-list" class="mt-4"></div></section>`;
+        container.innerHTML = `<section class="dashboard-section"><h2>My Appointments</h2><div id="cal-container" class="calendar-container"></div></section>`;
         
         if (window.Calendar) {
-            window.Calendar.init(this.currentUser, null, this.supabase, 'week', document.getElementById('cal-container'));
+            window.Calendar.init(this.currentUser, null, this.supabase, 'week', document.getElementById('cal-container'), (appt) => this.showAppointmentDetailsModal(appt));
+        }
+    },
+
+    async showAppointmentDetailsModal(appt) {
+        const m = document.getElementById('modal-container');
+        if (!m) return;
+
+        const isCancellable = appt.status === 'Scheduled' && (this.currentUser.role === 'Student' || this.currentUser.role === 'Tutor');
+        const isReschedulable = this.currentUser.role === 'Tutor' && appt.status !== 'Completed';
+
+        m.innerHTML = `
+            <div class="modal-backdrop">
+                <div class="modal">
+                    <div class="modal-header">
+                        <h3>Appointment Details</h3>
+                        <button onclick="document.getElementById('modal-container').innerHTML=''">×</button>
+                    </div>
+                    <div class="modal-body">
+                        <p><strong>Tutor:</strong> ${appt.tutor_first_name} ${appt.tutor_last_name}</p>
+                        <p><strong>Student:</strong> ${appt.student_first_name} ${appt.student_last_name}</p>
+                        <p><strong>Time:</strong> ${new Date(appt.start_time).toLocaleString()}</p>
+                        <p><strong>Status:</strong> <span class="status-badge">${appt.status}</span></p>
+                        ${isCancellable ? `<button id="cancel-appt-btn" class="btn btn-danger mt-3">Cancel Appointment</button>` : ''}
+                        ${isReschedulable ? `<button id="reschedule-appt-btn" class="btn btn-secondary mt-3 ml-2">Reschedule</button>` : ''}
+                    </div>
+                </div>
+            </div>`;
+
+        if (isCancellable) {
+            document.getElementById('cancel-appt-btn').onclick = async () => {
+                if (confirm('Are you sure you want to cancel this appointment?')) {
+                    await this.supabase.rpc('cancel_appointment', { p_appointment_id: appt.appointment_id, p_user_id: this.currentUser.user_id, p_role: this.currentUser.role });
+                    document.getElementById('modal-container').innerHTML = '';
+                    this.loadView('my-appointments');
+                }
+            };
         }
 
-        let query = this.supabase.from('appointments_enhanced').select('*, tutor:tutor_id!inner(*), student:student_id(*)');
-        if (this.currentUser.role === 'Student') query = query.eq('student_id', this.currentUser.user_id);
-        else if (this.currentUser.role === 'Tutor') query = query.eq('tutor_id', this.currentUser.user_id);
-        else if (this.currentUser.role === 'Admin') query = query.eq('tutor.category', this.currentUser.category);
-
-        const { data: appts, error } = await query.order('start_time', { ascending: false });
-        if (error) { console.error('Appts fetch error:', error); }
-
-        const list = document.getElementById('appt-list');
-        if (!appts || appts.length === 0) { list.innerHTML = '<div class="info">No appointments.</div>'; return; }
-
-        list.innerHTML = `<h3>Appointment List</h3>` + appts.map(a => `
-            <div class="appointment-card ${a.status.toLowerCase()} p-2 mb-2 card d-flex justify-between align-center">
-                <div>
-                    <strong>${new Date(a.start_time).toLocaleString()}</strong><br>
-                    ${this.currentUser.role === 'Student' ? `Tutor: ${a.tutor.first_name}` : `Student: ${a.student.first_name}`}
-                </div>
-                <div>
-                    <span class="status-badge">${a.status}</span>
-                    ${a.status === 'Scheduled' && (this.currentUser.role === 'Student' || this.currentUser.role === 'Tutor') ? `<button class="btn btn-sm btn-danger ml-2 cancel-appt" data-id="${a.appointment_id}">Cancel</button>` : ''}
-                </div>
-            </div>
-        `).join('');
-
-        list.querySelectorAll('.cancel-appt').forEach(b => b.onclick = async () => {
-            await this.supabase.from('appointments_enhanced').update({ status: 'Cancelled' }).eq('appointment_id', b.dataset.id);
-            this.renderMyAppointments(container);
-        });
+        if (isReschedulable) {
+            document.getElementById('reschedule-appt-btn').onclick = () => this.showRescheduleModal(appt);
+        }
     },
 
     async renderMyReviews(container) {
-        container.innerHTML = `<section class="dashboard-section"><h2>My Reviews</h2><div id="rev-list">Loading...</div></section>`;
         const isStudent = this.currentUser.role === 'Student';
-        
-        const { data: reviews, error } = await this.supabase.from('reviews')
-            .select('*, tutor:tutor_id(*), student:student_id(*)')
-            .eq(isStudent ? 'student_id' : 'tutor_id', this.currentUser.user_id);
+        let reviewableTutors = [];
 
-        if (error) { console.error('Reviews Error:', error); container.innerHTML += `<div class="error">${error.message}</div>`; return; }
-        const list = document.getElementById('rev-list');
-        if (!reviews || reviews.length === 0) { list.innerHTML = '<div class="info">No reviews found.</div>'; return; }
+        if (isStudent) {
+            const { data: appts, error: apptsError } = await this.supabase
+                .from('appointments_enhanced')
+                .select('tutor_id, tutor:tutor_id(user_id, first_name, last_name)') // Select tutor's user_id
+                .eq('student_id', this.currentUser.user_id)
+                .in('status', ['Completed', 'Scheduled']);
 
-        list.innerHTML = reviews.map(r => `
-            <div class="review-card p-3 mb-3 card">
-                <div class="review-header d-flex justify-between">
-                    <span>★ ${r.rating} | ${isStudent ? `For: ${r.tutor.first_name}` : 'From: Student'}</span>
-                    <span class="text-muted">${new Date(r.created_at || Date.now()).toLocaleDateString()}</span>
-                </div>
-                <p class="mt-2">${r.comment}</p>
-                ${r.tutor_response ? `<div class="tutor-response p-2 mt-2 bg-light"><strong>Tutor Response:</strong> ${r.tutor_response}</div>` : ''}
-                ${!isStudent && !r.tutor_response ? `
-                    <div class="mt-2">
-                        <input type="text" id="reply-${r.review_id}" class="form-control" placeholder="Write a reply...">
-                        <button class="btn btn-sm btn-primary mt-1 reply-btn" data-id="${r.review_id}">Reply</button>
-                    </div>
+            if (apptsError) console.error('Error fetching tutors for review:', apptsError);
+            else if (appts) {
+                // Get unique tutors, filtering out any nulls
+                const uniqueTutors = [...new Map(
+                    appts
+                    .filter(item => item.tutor) // Ensure tutor object is not null
+                    .map(item => [item.tutor.user_id, item.tutor])
+                ).values()];
+                reviewableTutors = uniqueTutors;
+            }
+        }
+
+        container.innerHTML = `
+            <section class="dashboard-section">
+                <h2>My Reviews</h2>
+                ${isStudent ? `
+                    <form id="review-form" class="card p-3 mb-4">
+                        <h3>Write a Review</h3>
+                        <div class="form-group">
+                            <label for="tutor-select">Select a Tutor</label>
+                            <select id="tutor-select" class="form-control" required>
+                                <option value="">-- Select a Tutor --</option>
+                                ${reviewableTutors.map(t => `<option value="${t.user_id}">${t.first_name} ${t.last_name}</option>`).join('')}
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="rating-select">Rating (1-5)</label>
+                            <select id="rating-select" class="form-control" required>
+                                <option value="5">5 Stars</option>
+                                <option value="4">4 Stars</option>
+                                <option value="3">3 Stars</option>
+                                <option value="2">2 Stars</option>
+                                <option value="1">1 Star</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="review-comment">Comment</label>
+                            <textarea id="review-comment" class="form-control" rows="4" required></textarea>
+                        </div>
+                        <button type="submit" class="btn btn-primary mt-2">Submit Review</button>
+                    </form>
                 ` : ''}
-                ${!isStudent && !r.deletion_requested ? `<button class="btn btn-sm btn-danger mt-1 req-del" data-id="${r.review_id}">Request Deletion</button>` : ''}
-                ${r.deletion_requested ? `<span class="badge badge-warning mt-1">Deletion Requested</span>` : ''}
-            </div>
-        `).join('');
+                <div id="rev-list">Loading...</div>
+            </section>
+        `;
 
-        list.querySelectorAll('.reply-btn').forEach(b => b.onclick = async () => {
-            const reply = document.getElementById(`reply-${b.dataset.id}`).value;
-            await this.supabase.from('reviews').update({ tutor_response: reply }).eq('review_id', b.dataset.id);
-            this.renderMyReviews(container);
-        });
+        if (isStudent) {
+            document.getElementById('review-form').onsubmit = async (e) => {
+                e.preventDefault();
+                const tutorId = document.getElementById('tutor-select').value;
+                const rating = document.getElementById('rating-select').value;
+                const comment = document.getElementById('review-comment').value;
 
-        list.querySelectorAll('.req-del').forEach(b => b.onclick = async () => {
-            await this.supabase.from('reviews').update({ deletion_requested: true }).eq('review_id', b.dataset.id);
-            alert('Requested!'); this.renderMyReviews(container);
-        });
+                if (!tutorId) { alert('Please select a tutor.'); return; }
+
+                // Find the latest completed appointment with this tutor to link the review
+                const { data: latestAppt, error: apptError } = await this.supabase
+                    .from('appointments_enhanced')
+                    .select('appointment_id')
+                    .eq('student_id', this.currentUser.user_id)
+                    .eq('tutor_id', tutorId)
+                    .eq('status', 'Completed')
+                    .order('start_time', { ascending: false })
+                    .limit(1)
+                    .single();
+                
+                if (apptError || !latestAppt) {
+                    alert('Could not find a completed appointment to link this review to. You can only review after a session is completed.');
+                    return;
+                }
+
+                const { error } = await this.supabase.from('reviews').insert([
+                    { student_id: this.currentUser.user_id, tutor_id: tutorId, rating, comment, appointment_id: latestAppt.appointment_id }
+                ]);
+
+                if (error) {
+                    alert(`Error submitting review: ${error.message}`);
+                } else {
+                    alert('Review submitted successfully!');
+                    this.renderMyReviews(container);
+                }
+            };
+        }
+
+        // Load existing reviews
+        const list = document.getElementById('rev-list');
+        if (!list) return;
+        list.innerHTML = 'Loading...';
+
+        try {
+            const columns = isStudent ? '*' : '*, student:student_id(*), tutor:tutor_id(*)';
+            const { data: reviews, error } = await this.supabase
+                .from('reviews')
+                .select(columns)
+                .eq(isStudent ? 'student_id' : 'tutor_id', this.currentUser.user_id);
+
+            if (error) throw error;
+
+            if (!reviews || reviews.length === 0) {
+                list.innerHTML = '<div class="info">No reviews found.</div>';
+                return;
+            }
+
+            let tutorMap = {};
+            if (isStudent) {
+                const { data: tutors, error: tutorsError } = await this.supabase.rpc('get_student_tutor_list');
+
+                if (tutorsError) {
+                    console.error("Couldn't fetch tutor list via RPC:", tutorsError);
+                } else if (tutors) {
+                    tutors.forEach(t => tutorMap[t.user_id] = t);
+                }
+            }
+
+
+
+            list.innerHTML = reviews.map(r => {
+                let reviewSourceInfo = '';
+                if (isStudent) {
+                    const tutor = tutorMap[r.tutor_id];
+                    const tutorName = tutor ? `${tutor.first_name} ${tutor.last_name}` : 'Tutor no longer available';
+                    reviewSourceInfo = ` | For: ${tutorName}`;
+                }
+
+                return `
+                <div class="review-card p-3 mb-3 card">
+                    <div class="review-header d-flex justify-between">
+                        <span>★ ${r.rating}${reviewSourceInfo}</span>
+                        <span class="text-muted">${new Date(r.created_at || Date.now()).toLocaleDateString()}</span>
+                    </div>
+                    <p class="mt-2">${r.comment}</p>
+                    ${r.tutor_response ? `<div class="tutor-response p-2 mt-2 bg-light"><strong>Tutor Response:</strong> ${r.tutor_response}</div>` : ''}
+                    ${this.currentUser.role === 'Tutor' && !r.tutor_response ? `
+                        <div class="mt-2">
+                            <input type="text" id="reply-${r.review_id}" class="form-control" placeholder="Write a reply...">
+                            <button class="btn btn-sm btn-primary mt-1 reply-btn" data-id="${r.review_id}">Reply</button>
+                        </div>
+                    ` : ''}
+                    ${this.currentUser.role === 'Tutor' && !r.deletion_requested ? `<button class="btn btn-sm btn-danger mt-1 req-del" data-id="${r.review_id}">Request Deletion</button>` : ''}
+                    ${r.deletion_requested ? `<span class="badge badge-warning mt-1">Deletion Requested</span>` : ''}
+                </div>
+            `}).join('');
+
+            // Re-attach event listeners for tutor-specific actions
+            if (!isStudent) {
+                list.querySelectorAll('.reply-btn').forEach(b => b.onclick = async () => {
+                    const reply = document.getElementById(`reply-${b.dataset.id}`).value;
+                    await this.supabase.from('reviews').update({ tutor_response: reply }).eq('review_id', b.dataset.id);
+                    this.renderMyReviews(container);
+                });
+
+                list.querySelectorAll('.req-del').forEach(b => b.onclick = async () => {
+                    await this.supabase.from('reviews').update({ deletion_requested: true }).eq('review_id', b.dataset.id);
+                    alert('Requested!'); this.renderMyReviews(container);
+                });
+            }
+        } catch (error) {
+            console.error('Reviews Error:', error);
+            if (list) list.innerHTML = `<div class="error">${error.message}</div>`;
+        }
     },
 
     async renderTutorAvailability(container) {
@@ -377,22 +522,64 @@ const App = {
     },
 
     async renderUserManagement(container) {
-        container.innerHTML = `<section class="dashboard-section"><h2>User Management</h2><div id="user-list"></div></section>`;
+        container.innerHTML = `<section class="dashboard-section"><h2>User Management</h2><div class="search-bar"><input type="text" id="user-search" placeholder="Search users..." class="form-control"></div><div id="user-list" class="mt-4"></div></section>`;
         const load = async () => {
-            const { data: users } = await this.supabase.from('users').select('*').order('role');
-            const listEl = document.getElementById('user-list');
-            if (!listEl) return;
-            listEl.innerHTML = `<table class="user-table">
-                <thead><tr><th>Name</th><th>Role</th><th>Status</th><th>Actions</th></tr></thead>
-                <tbody>${users.map(u => `
-                    <tr><td>${u.first_name} ${u.last_name}</td><td>${u.role}</td><td>${u.approval_status}</td>
-                    <td>
-                        ${u.approval_status === 'Pending' && this.currentUser.role === 'Super Admin' ? `<button class="btn btn-sm btn-primary app-u" data-id="${u.user_id}">Approve</button>` : ''}
-                        ${this.currentUser.role === 'Super Admin' ? `<button class="btn btn-sm btn-danger del-u" data-id="${u.user_id}">Delete</button>` : ''}
-                    </td></tr>
-                `).join('')}</tbody></table>`;
-            listEl.querySelectorAll('.app-u').forEach(b => b.onclick = async () => { await this.supabase.from('users').update({ approval_status: 'Approved' }).eq('user_id', b.dataset.id); load(); });
-            listEl.querySelectorAll('.del-u').forEach(b => b.onclick = async () => { if(confirm('Delete user?')) { await this.supabase.from('users').delete().eq('user_id', b.dataset.id); load(); } });
+            const { data: allUsers } = await this.supabase.from('users').select('*').order('role');
+            const users = allUsers.filter(u => u.role !== 'Super Admin');
+
+            const renderUsers = (userList) => {
+                const pendingUsers = userList.filter(u => u.approval_status === 'Pending');
+                const activeUsers = userList.filter(u => u.approval_status !== 'Pending');
+
+                let html = '';
+
+                if (pendingUsers.length > 0) {
+                    html += `<h3>Pending Accounts</h3><table class="user-table">
+                        <thead><tr><th>ID</th><th>Name</th><th>Email</th><th>Role</th><th>Actions</th></tr></thead>
+                        <tbody>${pendingUsers.map(u => `
+                            <tr><td>${u.user_id}</td><td>${u.first_name} ${u.last_name}</td><td>${u.email}</td><td>${u.role}</td>
+                            <td>
+                                <button class="btn btn-sm btn-primary app-u" data-id="${u.user_id}">Approve</button>
+                                <button class="btn btn-sm btn-danger del-u" data-id="${u.user_id}">Delete</button>
+                            </td></tr>
+                        `).join('')}</tbody></table>`;
+                }
+
+                if (activeUsers.length > 0) {
+                    html += `<h3 class="mt-4">Active Accounts</h3><table class="user-table">
+                        <thead><tr><th>ID</th><th>Name</th><th>Email</th><th>Role</th><th>Actions</th></tr></thead>
+                        <tbody>${activeUsers.map(u => `
+                            <tr><td>${u.user_id}</td><td>${u.first_name} ${u.last_name}</td><td>${u.email}</td><td>${u.role}</td>
+                            <td>
+                                <button class="btn btn-sm btn-danger del-u" data-id="${u.user_id}">Delete</button>
+                            </td></tr>
+                        `).join('')}</tbody></table>`;
+                }
+
+                const listEl = document.getElementById('user-list');
+                if (listEl) {
+                    listEl.innerHTML = html;
+                    listEl.querySelectorAll('.app-u').forEach(b => b.onclick = async () => { await this.supabase.from('users').update({ approval_status: 'Approved' }).eq('user_id', b.dataset.id); load(); });
+                    listEl.querySelectorAll('.del-u').forEach(b => {
+                        b.onclick = () => {
+                            this.showConfirmationModal('Are you sure you want to delete this user?', async () => {
+                                await this.supabase.rpc('delete_user', { p_user_id: b.dataset.id });
+                                load();
+                            });
+                        };
+                    });
+                }
+            };
+
+            renderUsers(users || []);
+
+            const searchInput = document.getElementById('user-search');
+            if (searchInput) {
+                searchInput.oninput = (e) => {
+                    const term = e.target.value.toLowerCase();
+                    renderUsers(users.filter(u => `${u.first_name} ${u.last_name}`.toLowerCase().includes(term)));
+                };
+            }
         };
         load();
     },
@@ -409,7 +596,11 @@ const App = {
                         <input type="date" name="end" class="form-control mb-2" required>
                     </div>
                     <select name="type" class="form-control mb-2"><option>Holiday</option><option>Closure</option></select>
-                    <button type="submit" class="btn btn-primary">Create Event</button>
+                    <div class="form-group form-check" style="display: flex; align-items: center;">
+                        <input type="checkbox" name="is_recurring" id="is_recurring" class="form-check-input" style="margin-right: 10px;">
+                        <label for="is_recurring" class="form-check-label">Is Recurring</label>
+                    </div>
+                    <button type="submit" class="btn btn-primary mt-2">Create Event</button>
                 </form>
                 <div id="event-list"></div>
             </section>
@@ -419,16 +610,31 @@ const App = {
             const listEl = document.getElementById('event-list');
             if (!listEl) return;
             listEl.innerHTML = `<h3>Existing Events</h3>` + (data || []).map(e => `
-                <div class="card mb-2 p-2"><strong>${e.name}</strong> (${e.start_date} to ${e.end_date})</div>
+                <div class="card mb-2 p-2" style="display: flex; justify-content: space-between; align-items: center;">
+                    <div>
+                        <strong>${e.name}</strong> (${e.start_date} to ${e.end_date}) ${e.is_recurring ? '<span class="badge badge-secondary">Recurring</span>' : ''}
+                    </div>
+                    <button class="btn btn-sm btn-danger del-event" data-id="${e.event_id}">Delete</button>
+                </div>
             `).join('');
+
+            listEl.querySelectorAll('.del-event').forEach(b => {
+                b.onclick = () => {
+                    this.showConfirmationModal('Are you sure you want to delete this event?', async () => {
+                        await this.supabase.from('system_events').delete().eq('event_id', b.dataset.id);
+                        load();
+                    });
+                };
+            });
         };
         load();
         document.getElementById('event-form').onsubmit = async (e) => {
             e.preventDefault();
             const fd = new FormData(e.target);
+            const isRecurring = document.getElementById('is_recurring').checked;
             const { error } = await this.supabase.rpc('create_system_event', {
                 p_name: fd.get('name'), p_start_date: fd.get('start'), p_end_date: fd.get('end'), 
-                p_event_type: fd.get('type'), p_is_recurring: false
+                p_event_type: fd.get('type'), p_is_recurring: isRecurring
             });
             if (error) alert(error.message); else { alert('Created!'); e.target.reset(); load(); }
         };
@@ -578,12 +784,146 @@ const App = {
         };
     },
 
-    async showReviewsModal(t) {
+    showConfirmationModal(message, onConfirm) {
         const m = document.getElementById('modal-container');
+        if (!m) return;
+
+        m.innerHTML = `
+            <div class="modal-backdrop">
+                <div class="modal">
+                    <div class="modal-header">
+                        <h3>Confirm Action</h3>
+                        <button onclick="document.getElementById('modal-container').innerHTML=''">×</button>
+                    </div>
+                    <div class="modal-body">
+                        <p>${message}</p>
+                        <div class="mt-4 d-flex justify-end">
+                            <button id="confirm-yes" class="btn btn-primary mr-2">Yes</button>
+                            <button id="confirm-no" class="btn btn-secondary">No</button>
+                        </div>
+                    </div>
+                </div>
+            </div>`;
+
+        document.getElementById('confirm-yes').onclick = () => {
+            onConfirm();
+            document.getElementById('modal-container').innerHTML = '';
+        };
+        document.getElementById('confirm-no').onclick = () => {
+            document.getElementById('modal-container').innerHTML = '';
+        };
+    },
+
+    async showReviewsModal(t) {
         if (!m) return;
         m.innerHTML = `<div class="modal-backdrop"><div class="modal"><div class="modal-header"><h3>Reviews for ${t.first_name}</h3><button onclick="document.getElementById('modal-container').innerHTML=''">×</button></div><div id="m-rev" class="modal-body">Loading...</div></div></div>`;
         const { data } = await this.supabase.from('reviews').select('*').eq('tutor_id', t.user_id);
         document.getElementById('m-rev').innerHTML = (data || []).map(r => `<div class="review-card card p-2 mb-2">★ ${r.rating}<p>${r.comment}</p></div>`).join('') || 'No reviews yet.';
+    },
+
+    async showRescheduleModal(appt) {
+        const m = document.getElementById('modal-container');
+        if (!m) return;
+
+        let selectedSlot = null;
+
+        m.innerHTML = `
+            <div class="modal-backdrop">
+                <div class="modal large">
+                    <div class="modal-header">
+                        <h3>Reschedule Appointment</h3>
+                        <button onclick="document.getElementById('modal-container').innerHTML=''">×</button>
+                    </div>
+                    <div class="modal-body">
+                        <p>Select a new date to see available 30-minute time slots.</p>
+                        <div class="booking-form-container mt-4">
+                            <input type="date" id="booking-date" class="form-control mb-2">
+                            <div id="time-slots-container" class="time-slots-container mt-3"></div>
+                            <button id="confirm-reschedule-btn" class="btn btn-primary mt-3" disabled>Confirm Reschedule</button>
+                        </div>
+                        <div id="booking-feedback" class="mt-3"></div>
+                    </div>
+                </div>
+            </div>`;
+
+        const dateInput = document.getElementById('booking-date');
+        const slotsContainer = document.getElementById('time-slots-container');
+        const confirmBtn = document.getElementById('confirm-reschedule-btn');
+        const feedbackEl = document.getElementById('booking-feedback');
+
+        dateInput.onchange = async () => {
+            const selectedDate = dateInput.value;
+            if (!selectedDate) return;
+
+            slotsContainer.innerHTML = '<div>Loading available times...</div>';
+            confirmBtn.disabled = true;
+            selectedSlot = null;
+            feedbackEl.innerHTML = '';
+
+            const { data: slots, error } = await this.supabase.rpc('get_tutor_availability_slots', {
+                p_tutor_id: appt.tutor_id,
+                p_target_date: selectedDate
+            });
+
+            if (error) {
+                console.error('Error fetching availability:', error);
+                slotsContainer.innerHTML = `<div class="error">Could not load availability. Please try again.</div>`;
+                return;
+            }
+
+            if (!slots || slots.length === 0) {
+                slotsContainer.innerHTML = '<div>No available time slots for this date.</div>';
+                return;
+            }
+
+            slotsContainer.innerHTML = '';
+            slots.forEach(slot => {
+                const slotTime = new Date(slot.available_slot);
+                const button = document.createElement('button');
+                button.className = 'btn time-slot-btn';
+                button.textContent = slotTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true });
+                button.dataset.slot = slot.available_slot;
+                
+                button.onclick = () => {
+                    document.querySelectorAll('.time-slot-btn').forEach(btn => btn.classList.remove('active'));
+                    button.classList.add('active');
+                    selectedSlot = button.dataset.slot;
+                    confirmBtn.disabled = false;
+                };
+                slotsContainer.appendChild(button);
+            });
+        };
+
+        confirmBtn.onclick = async () => {
+            if (!selectedSlot) {
+                feedbackEl.innerHTML = `<div class="error">Please select a time slot.</div>`;
+                return;
+            }
+
+            confirmBtn.disabled = true;
+            feedbackEl.innerHTML = `<div>Rescheduling...</div>`;
+
+            const startTime = new Date(selectedSlot);
+            const endTime = new Date(startTime.getTime() + 30 * 60 * 1000);
+
+            const { error } = await this.supabase.rpc('reschedule_appointment', {
+                p_appointment_id: appt.appointment_id,
+                p_new_start_time: startTime.toISOString(),
+                p_new_end_time: endTime.toISOString()
+            });
+
+            if (error) {
+                console.error('Reschedule RPC error:', error);
+                feedbackEl.innerHTML = `<div class="error">Error rescheduling appointment: ${error.message}</div>`;
+                confirmBtn.disabled = false;
+            } else {
+                feedbackEl.innerHTML = `<div class="success">Appointment rescheduled successfully!</div>`;
+                setTimeout(() => {
+                    document.getElementById('modal-container').innerHTML='';
+                    this.loadView('my-appointments');
+                }, 2000);
+            }
+        };
     }
 };
 
