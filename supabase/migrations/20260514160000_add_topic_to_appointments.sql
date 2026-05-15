@@ -1,0 +1,1 @@
+ALTER TABLE appointments_enhanced ADD COLUMN topic TEXT;

@@ -206,16 +206,26 @@ window.Calendar = {
                 }
             } else {
                 const apptEnd = new Date(appt.end_time);
-                const startRow = Math.max(2, apptStart.getUTCHours() - 8 + 2);
-                const endRow = Math.min(15, apptEnd.getUTCHours() - 8 + 2);
-                if (startRow >= 15 || endRow <= 2) return;
+                const startHour = apptStart.getUTCHours();
+                const startMinute = apptStart.getUTCMinutes();
+                const startRow = (startHour * 2) + (startMinute >= 30 ? 1 : 0) + 2;
 
-                const block = document.createElement('div');
-                block.className = `event-block ${appt.status.toLowerCase()}`;
-                block.style.gridRow = `${startRow} / ${endRow}`;
-                block.innerHTML = `<strong>${appt.tutor_first_name}</strong><br>${apptStart.getUTCHours()}:00`;
-                block.onclick = () => this.onAppointmentClick(appt);
-                cell.appendChild(block);
+                const endHour = apptEnd.getUTCHours();
+                const endMinute = apptEnd.getUTCMinutes();
+                const endRow = (endHour * 2) + (endMinute > 0 ? 1 : 0) + 2;
+
+                const dayOfWeek = apptStart.getUTCDay();
+                const gridColumn = dayOfWeek + 2;
+
+                if (endRow > startRow) {
+                    const block = document.createElement('div');
+                    block.className = `event-block ${appt.status.toLowerCase()}`;
+                    block.style.gridRow = `${startRow} / ${endRow}`;
+                    block.style.gridColumn = gridColumn;
+                    block.innerHTML = `<strong>${this.getAppointmentDisplayName(appt)}</strong><br>${apptStart.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+                    block.onclick = () => this.onAppointmentClick(appt);
+                    grid.appendChild(block);
+                }
             }
         });
 

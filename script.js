@@ -148,6 +148,19 @@ const App = {
         }
     },
 
+    getAppointmentDisplayName(appt) {
+        const studentName = (appt.student_first_name || appt.student_last_name) ? `${appt.student_first_name || ''} ${appt.student_last_name || ''}`.trim() : '(Unknown Student)';
+        const tutorName = (appt.tutor_first_name || appt.tutor_last_name) ? `${appt.tutor_first_name || ''} ${appt.tutor_last_name || ''}`.trim() : 'Tutor no longer available';
+
+        switch (this.currentUser.role) {
+            case 'Student': return tutorName;
+            case 'Tutor': return studentName;
+            case 'Admin':
+            case 'Super Admin': return `${tutorName} & ${studentName}`;
+            default: return 'Appointment';
+        }
+    },
+
     // VIEWS
     async renderFindTutor(container) {
         container.innerHTML = `
@@ -218,8 +231,7 @@ const App = {
                         <button onclick="document.getElementById('modal-container').innerHTML=''">×</button>
                     </div>
                     <div class="modal-body">
-                        <p><strong>Tutor:</strong> ${appt.tutor_first_name} ${appt.tutor_last_name}</p>
-                        <p><strong>Student:</strong> ${appt.student_first_name} ${appt.student_last_name}</p>
+                        <p><strong>With:</strong> ${this.getAppointmentDisplayName(appt)}</p>
                         <p><strong>Time:</strong> ${new Date(appt.start_time).toLocaleString()}</p>
                         <p><strong>Status:</strong> <span class="status-badge">${appt.status}</span></p>
                         ${isCancellable ? `<button id="cancel-appt-btn" class="btn btn-danger mt-3">Cancel Appointment</button>` : ''}
@@ -344,7 +356,7 @@ const App = {
         list.innerHTML = 'Loading...';
 
         try {
-            const columns = isStudent ? '*' : '*, student:student_id(*), tutor:tutor_id(*)';
+            const columns = isStudent ? '*, appointments_enhanced!inner(*, courses(course_name))' : '*, student:student_id(*), tutor:tutor_id(*), appointments_enhanced!inner(*, courses(course_name)))';
             const { data: reviews, error } = await this.supabase
                 .from('reviews')
                 .select(columns)
@@ -372,10 +384,14 @@ const App = {
 
             list.innerHTML = reviews.map(r => {
                 let reviewSourceInfo = '';
+                const courseName = r.appointments_enhanced && r.appointments_enhanced.courses ? r.appointments_enhanced.courses.course_name : 'N/A';
+
                 if (isStudent) {
                     const tutor = tutorMap[r.tutor_id];
                     const tutorName = tutor ? `${tutor.first_name} ${tutor.last_name}` : 'Tutor no longer available';
-                    reviewSourceInfo = ` | For: ${tutorName}`;
+                    reviewSourceInfo = ` | For: ${tutorName} | Course: ${courseName}`;
+                } else {
+                    reviewSourceInfo = ` | Course: ${courseName}`;
                 }
 
                 return `
@@ -701,44 +717,78 @@ const App = {
         const slotsContainer = document.getElementById('time-slots-container');
         const confirmBtn = document.getElementById('confirm-booking-btn');
         const feedbackEl = document.getElementById('booking-feedback');
+        let selectedSlots = [];
 
         dateInput.onchange = async () => {
-            const selectedDate = dateInput.value;
+            const selectedDate = new Date(dateInput.value + 'T00:00:00Z');
             if (!selectedDate) return;
 
             slotsContainer.innerHTML = '<div>Loading available times...</div>';
             confirmBtn.disabled = true;
-            selectedSlot = null;
+            selectedSlots = [];
             feedbackEl.innerHTML = '';
 
-            const { data: slots, error } = await this.supabase.rpc('get_tutor_availability_slots', {
-                p_tutor_id: tutor.user_id,
-                p_target_date: selectedDate
-            });
+            const dayOfWeek = selectedDate.getUTCDay();
+            const { data: workingHours, error: whError } = await this.supabase
+                .from('working_hours').select('start_time, end_time').eq('tutor_id', tutor.user_id).eq('day_of_week', dayOfWeek).single();
 
-            if (error) {
-                console.error('Error fetching availability:', error);
+            const { data: appointments, error: apptError } = await this.supabase
+                .from('appointments_enhanced').select('start_time')
+                .eq('tutor_id', tutor.user_id)
+                .gte('start_time', selectedDate.toISOString())
+                .lt('start_time', new Date(selectedDate.getTime() + 24 * 60 * 60 * 1000).toISOString());
+
+            if (whError || apptError) {
+                console.error('Error fetching availability:', whError || apptError);
                 slotsContainer.innerHTML = `<div class="error">Could not load availability. Please try again.</div>`;
                 return;
             }
 
-            if (!slots || slots.length === 0) {
+            if (!workingHours) {
+                slotsContainer.innerHTML = '<div>Tutor has no working hours set for this day.</div>';
+                return;
+            }
+
+            const bookedSlots = new Set(appointments.map(a => new Date(a.start_time).toISOString()));
+            const availableSlots = [];
+            const [startHour] = workingHours.start_time.split(':').map(Number);
+            const [endHour] = workingHours.end_time.split(':').map(Number);
+
+            for (let hour = startHour; hour < endHour; hour++) {
+                for (let minute = 0; minute < 60; minute += 30) {
+                    const slotTime = new Date(selectedDate);
+                    slotTime.setUTCHours(hour, minute, 0, 0);
+                    if (!bookedSlots.has(slotTime.toISOString())) {
+                        availableSlots.push(slotTime);
+                    }
+                }
+            }
+
+            if (availableSlots.length === 0) {
                 slotsContainer.innerHTML = '<div>No available time slots for this date.</div>';
                 return;
             }
 
             slotsContainer.innerHTML = '';
-            slots.forEach(slot => {
-                const slotTime = new Date(slot.available_slot);
+            availableSlots.forEach((slot, index) => {
                 const button = document.createElement('button');
                 button.className = 'btn time-slot-btn';
-                button.textContent = slotTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true });
-                button.dataset.slot = slot.available_slot;
-                
+                button.textContent = slot.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true, timeZone: 'UTC' });
+                button.dataset.slot = slot.toISOString();
+                button.dataset.index = index;
+
                 button.onclick = () => {
-                    document.querySelectorAll('.time-slot-btn').forEach(btn => btn.classList.remove('active'));
+                    const clickedIndex = parseInt(button.dataset.index);
+                    const lastSelectedIndex = selectedSlots.length > 0 ? parseInt(selectedSlots[selectedSlots.length - 1].dataset.index) : -1;
+
+                    if (selectedSlots.length > 0 && clickedIndex !== lastSelectedIndex + 1) {
+                        // If not contiguous, reset selection
+                        selectedSlots.forEach(btn => btn.classList.remove('active'));
+                        selectedSlots = [];
+                    }
+                    
                     button.classList.add('active');
-                    selectedSlot = button.dataset.slot;
+                    selectedSlots.push(button);
                     confirmBtn.disabled = false;
                 };
                 slotsContainer.appendChild(button);
@@ -746,16 +796,17 @@ const App = {
         };
 
         confirmBtn.onclick = async () => {
-            if (!selectedSlot) {
-                feedbackEl.innerHTML = `<div class="error">Please select a time slot.</div>`;
+            if (selectedSlots.length === 0) {
+                feedbackEl.innerHTML = `<div class="error">Please select one or more time slots.</div>`;
                 return;
             }
 
             confirmBtn.disabled = true;
             feedbackEl.innerHTML = `<div>Booking...</div>`;
 
-            const startTime = new Date(selectedSlot);
-            const endTime = new Date(startTime.getTime() + 30 * 60 * 1000);
+            const startTime = new Date(selectedSlots[0].dataset.slot);
+            const lastSlot = new Date(selectedSlots[selectedSlots.length - 1].dataset.slot);
+            const endTime = new Date(lastSlot.getTime() + 30 * 60 * 1000);
 
             const { data, error } = await this.supabase.rpc('book_appointment', {
                 p_student_id: this.currentUser.user_id,
@@ -815,6 +866,7 @@ const App = {
     },
 
     async showReviewsModal(t) {
+        const m = document.getElementById('modal-container');
         if (!m) return;
         m.innerHTML = `<div class="modal-backdrop"><div class="modal"><div class="modal-header"><h3>Reviews for ${t.first_name}</h3><button onclick="document.getElementById('modal-container').innerHTML=''">×</button></div><div id="m-rev" class="modal-body">Loading...</div></div></div>`;
         const { data } = await this.supabase.from('reviews').select('*').eq('tutor_id', t.user_id);

@@ -1,0 +1,1 @@
+DROP FUNCTION IF EXISTS test_get_appointment();

@@ -1,0 +1,26 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Calendar Test Page</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <h1>Calendar Functionality Test</h1>
+    <div class="test-controls card p-3">
+        <p>Click a button to log in as a specific user and render the calendar.</p>
+        <button id="test-student" class="btn btn-primary">Test as Student</button>
+        <button id="test-tutor" class="btn btn-primary">Test as Tutor</button>
+        <button id="test-admin" class="btn btn-primary">Test as Admin</button>
+        <button id="test-superadmin" class="btn btn-primary">Test as Super Admin</button>
+    </div>
+
+    <div id="calendar-test-container" class="mt-4"></div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="calendar.js"></script>
+    <script src="test.js"></script>
+</body>
+</html>

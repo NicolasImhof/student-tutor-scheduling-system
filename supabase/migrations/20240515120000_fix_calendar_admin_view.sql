@@ -1,9 +1,4 @@
-DROP FUNCTION IF EXISTS get_appointments_for_calendar(date, date, integer, text, text);
-DROP FUNCTION IF EXISTS get_appointments_for_calendar(timestamp with time zone, timestamp with time zone, integer, text, text);
-DROP FUNCTION IF EXISTS get_appointments_for_calendar_v2(timestamp with time zone, timestamp with time zone, integer, text, text);
-DROP FUNCTION IF EXISTS get_calendar_appointments(timestamp with time zone, timestamp with time zone);
-
-CREATE OR REPLACE FUNCTION get_calendar_appointments(start_date_in timestamp with time zone, end_date_in timestamp with time zone)
+CREATE OR REPLACE FUNCTION get_calendar_appointments(start_date_in timestamp with time zone, end_date_in timestamp with time zone, p_user_id integer, p_role text)
 RETURNS SETOF json AS $$
 BEGIN
     RETURN QUERY
@@ -30,6 +25,12 @@ BEGIN
     LEFT JOIN users s ON a.student_id = s.user_id
     LEFT JOIN users t ON a.tutor_id = t.user_id
     WHERE 
-        a.start_time >= start_date_in AND a.start_time <= end_date_in;
+        a.start_time >= start_date_in AND a.start_time <= end_date_in AND
+        (CASE
+            WHEN p_role = 'Student' THEN a.student_id = p_user_id
+            WHEN p_role = 'Tutor' THEN a.tutor_id = p_user_id
+            WHEN p_role IN ('Admin', 'Super Admin') THEN true
+            ELSE false
+        END);
 END;
 $$ LANGUAGE plpgsql;
