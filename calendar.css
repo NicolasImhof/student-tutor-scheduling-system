@@ -11,6 +11,12 @@
     --event-text: #ffffff;
     --holiday-bg: #f2a2a2;
     --time-off-bg: #ffc107;
+    --time-slot-height: 50px;
+}
+
+.time-slot {
+    position: relative;
+    border-top: 1px solid var(--calendar-border);
 }
 
 .calendar-container {
@@ -150,14 +156,10 @@
 }
 
 .event-block {
-    position: absolute;
-    left: 4px;
-    right: 4px;
     background-color: var(--event-bg);
     color: var(--event-text);
     border-radius: 4px;
     padding: 4px;
     font-size: 0.75rem;
     overflow: hidden;
-    z-index: 1;
 }

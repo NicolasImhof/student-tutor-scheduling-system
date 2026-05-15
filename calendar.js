@@ -6,14 +6,16 @@ window.Calendar = {
     container: null,
     viewDate: new Date(new Date().toISOString().split('T')[0] + 'T00:00:00Z'),
     onAppointmentClick: null,
+    getAppointmentDisplayName: null,
 
-    init(currentUser, tutorId, supabase, view, container, onAppointmentClick) {
+    init(currentUser, tutorId, supabase, view, container, onAppointmentClick, getAppointmentDisplayName) {
         this.currentUser = currentUser;
         this.tutorId = tutorId; // This is for specific tutor booking view
         this.supabase = supabase;
         this.view = view || 'week';
         this.container = container;
         this.onAppointmentClick = onAppointmentClick;
+        this.getAppointmentDisplayName = getAppointmentDisplayName || function(appt) { return 'Appointment'; };
         this.render();
     },
 
@@ -58,19 +60,22 @@ window.Calendar = {
 
     navigate(direction) {
         if (this.view === 'month') {
-            this.viewDate.setUTCMonth(this.viewDate.getUTCMonth() + direction);
+            this.viewDate.setMonth(this.viewDate.getMonth() + direction);
         } else {
-            this.viewDate.setUTCDate(this.viewDate.getUTCDate() + (7 * direction));
+            this.viewDate.setDate(this.viewDate.getDate() + (7 * direction));
         }
         this.render();
     },
 
     async renderWeekView() {
-        const startOfWeek = new Date(this.viewDate);
-        startOfWeek.setUTCDate(this.viewDate.getUTCDate() - this.viewDate.getUTCDay());
+        // Use local date for calculations
+        const viewDate = new Date(this.viewDate.getFullYear(), this.viewDate.getMonth(), this.viewDate.getDate());
+        const startOfWeek = new Date(viewDate);
+        startOfWeek.setDate(viewDate.getDate() - viewDate.getDay());
+
         const endOfWeek = new Date(startOfWeek);
-        endOfWeek.setUTCDate(startOfWeek.getUTCDate() + 6);
-        endOfWeek.setUTCHours(23, 59, 59, 999);
+        endOfWeek.setDate(startOfWeek.getDate() + 6);
+        endOfWeek.setHours(23, 59, 59, 999);
 
         document.getElementById('view-title').textContent = `${startOfWeek.toLocaleDateString()} - ${endOfWeek.toLocaleDateString()}`;
         const gridContainer = document.getElementById('calendar-grid-container');
@@ -84,12 +89,12 @@ window.Calendar = {
         
         for (let i = 0; i < 7; i++) {
             const date = new Date(startOfWeek);
-            date.setUTCDate(startOfWeek.getUTCDate() + i);
-            const isWeekend = date.getUTCDay() === 0 || date.getUTCDay() === 6;
-            const dateString = date.toISOString().split('T')[0];
+            date.setDate(startOfWeek.getDate() + i);
+            const isWeekend = date.getDay() === 0 || date.getDay() === 6;
+            const dateString = `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, '0')}-${date.getDate().toString().padStart(2, '0')}`;
             
             gridHtml += `<div class="day-column ${isWeekend ? 'disabled' : ''}" data-date="${dateString}">`;
-            gridHtml += `<div class="day-header">${date.toLocaleDateString('en-US', { weekday: 'short', timeZone: 'UTC' })} ${date.getUTCDate()}</div>`;
+            gridHtml += `<div class="day-header">${date.toLocaleDateString('en-US', { weekday: 'short' })} ${date.getDate()}</div>`;
             for (let hour = 0; hour < 24; hour++) {
                 gridHtml += `<div class="time-slot" data-hour="${hour}" style="grid-row: ${hour + 2}"></div>`;
             }
@@ -98,15 +103,18 @@ window.Calendar = {
         gridHtml += '</div>';
         gridContainer.innerHTML = gridHtml;
 
-        await this.fetchAllEvents(startOfWeek, endOfWeek, gridContainer.querySelector('.calendar-grid-week'));
+        // Pass UTC dates to the RPC
+        const fetchStart = new Date(startOfWeek);
+        const fetchEnd = new Date(endOfWeek);
+        await this.fetchAllEvents(fetchStart, fetchEnd, gridContainer.querySelector('.calendar-grid-week'));
     },
 
     async renderMonthView() {
-        const firstDay = new Date(Date.UTC(this.viewDate.getUTCFullYear(), this.viewDate.getUTCMonth(), 1));
-        const lastDay = new Date(Date.UTC(this.viewDate.getUTCFullYear(), this.viewDate.getUTCMonth() + 1, 0));
-        lastDay.setUTCHours(23, 59, 59, 999);
+        const firstDay = new Date(this.viewDate.getFullYear(), this.viewDate.getMonth(), 1);
+        const lastDay = new Date(this.viewDate.getFullYear(), this.viewDate.getMonth() + 1, 0);
+        lastDay.setHours(23, 59, 59, 999);
 
-        document.getElementById('view-title').textContent = firstDay.toLocaleString('default', { month: 'long', year: 'numeric', timeZone: 'UTC' });
+        document.getElementById('view-title').textContent = firstDay.toLocaleString('default', { month: 'long', year: 'numeric' });
         const gridContainer = document.getElementById('calendar-grid-container');
         gridContainer.innerHTML = '<div class="calendar-grid-month"></div>';
         const grid = gridContainer.querySelector('.calendar-grid-month');
@@ -114,17 +122,19 @@ window.Calendar = {
         const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
         let gridHtml = days.map(day => `<div class="day-header">${day}</div>`).join('');
 
-        for (let i = 0; i < firstDay.getUTCDay(); i++) gridHtml += '<div class="day-cell other-month"></div>';
+        for (let i = 0; i < firstDay.getDay(); i++) gridHtml += '<div class="day-cell other-month"></div>';
 
-        for (let i = 1; i <= lastDay.getUTCDate(); i++) {
-            const date = new Date(Date.UTC(this.viewDate.getUTCFullYear(), this.viewDate.getUTCMonth(), i));
-            const dateString = date.toISOString().split('T')[0];
-            const isWeekend = date.getUTCDay() === 0 || date.getUTCDay() === 6;
+        for (let i = 1; i <= lastDay.getDate(); i++) {
+            const date = new Date(this.viewDate.getFullYear(), this.viewDate.getMonth(), i);
+            const dateString = `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, '0')}-${date.getDate().toString().padStart(2, '0')}`;
+            const isWeekend = date.getDay() === 0 || date.getDay() === 6;
             gridHtml += `<div class="day-cell ${isWeekend ? 'disabled' : ''}" data-date="${dateString}"><div class="day-number">${i}</div><div class="events-list"></div></div>`;
         }
         grid.innerHTML = gridHtml;
 
-        await this.fetchAllEvents(firstDay, lastDay, grid);
+        const fetchStart = new Date(firstDay);
+        const fetchEnd = new Date(lastDay);
+        await this.fetchAllEvents(fetchStart, fetchEnd, grid);
     },
 
     async fetchAllEvents(start, end, grid) {
@@ -133,8 +143,7 @@ window.Calendar = {
             start_date_in: start.toISOString(),
             end_date_in: end.toISOString(),
             p_user_id: this.currentUser.user_id,
-            p_role: this.currentUser.role,
-            p_category: this.currentUser.category
+            p_role: this.currentUser.role
         };
 
         // If we are in a booking view for a specific tutor, override the filter
@@ -164,6 +173,36 @@ window.Calendar = {
         const systemEvents = systemEventsRes.data || [];
         const workingHours = workingHoursRes ? workingHoursRes.data || [] : [];
 
+        // As per the user's direction, we will replicate the logic from the working `renderMyReviews` function.
+        let tutorMap = {};
+        const { data: tutors, error: tutorsError } = await this.supabase.rpc('get_student_tutor_list');
+        if (tutorsError) {
+            console.error("Could not fetch tutor list:", tutorsError);
+        } else {
+            tutors.forEach(t => {
+                tutorMap[t.user_id] = t;
+            });
+        }
+
+        const finalAppointments = appointments.map(appt => {
+            const tutor = tutorMap[appt.tutor_id];
+            return {
+                ...appt,
+                tutor_first_name: tutor ? tutor.first_name : 'Tutor',
+                tutor_last_name: tutor ? tutor.last_name : 'N/A',
+            };
+        });
+
+        // Add delegated event listener for appointment clicks
+        grid.addEventListener('click', (e) => {
+            const eventEl = e.target.closest('.event-item, .event-block');
+            if (eventEl && eventEl.dataset.id) {
+                const clickedAppt = finalAppointments.find(a => a.appointment_id.toString() === eventEl.dataset.id);
+                if (clickedAppt) {
+                    this.onAppointmentClick(clickedAppt);
+                }
+            }
+        });
 
         // Render System Events
         systemEvents.forEach(event => {
@@ -189,9 +228,9 @@ window.Calendar = {
         });
 
         // Render Appointments
-        appointments.forEach(appt => {
-            const apptStart = new Date(appt.start_time);
-            const dateStr = apptStart.toISOString().split('T')[0];
+        finalAppointments.forEach(appt => {
+            const apptStart = new Date(appt.start_time); // Date from DB is UTC
+            const dateStr = `${apptStart.getFullYear()}-${(apptStart.getMonth() + 1).toString().padStart(2, '0')}-${apptStart.getDate().toString().padStart(2, '0')}`;
             const cell = grid.querySelector(`[data-date="${dateStr}"]`);
             if (!cell || cell.classList.contains('system-event')) return;
 
@@ -200,31 +239,30 @@ window.Calendar = {
                 if (list) {
                     const eventItem = document.createElement('div');
                     eventItem.className = `event-item ${appt.status.toLowerCase()}`;
-                    eventItem.textContent = `${appt.tutor_first_name} & ${appt.student_first_name}`;
-                    eventItem.onclick = () => this.onAppointmentClick(appt);
+                    eventItem.textContent = this.getAppointmentDisplayName(appt);
+                    eventItem.dataset.id = appt.appointment_id;
                     list.appendChild(eventItem);
                 }
             } else {
                 const apptEnd = new Date(appt.end_time);
-                const startHour = apptStart.getUTCHours();
-                const startMinute = apptStart.getUTCMinutes();
-                const startRow = (startHour * 2) + (startMinute >= 30 ? 1 : 0) + 2;
+                const startHour = apptStart.getHours();
+                
+                const dayColumn = grid.querySelector(`[data-date="${dateStr}"]`);
 
-                const endHour = apptEnd.getUTCHours();
-                const endMinute = apptEnd.getUTCMinutes();
-                const endRow = (endHour * 2) + (endMinute > 0 ? 1 : 0) + 2;
-
-                const dayOfWeek = apptStart.getUTCDay();
-                const gridColumn = dayOfWeek + 2;
-
-                if (endRow > startRow) {
-                    const block = document.createElement('div');
-                    block.className = `event-block ${appt.status.toLowerCase()}`;
-                    block.style.gridRow = `${startRow} / ${endRow}`;
-                    block.style.gridColumn = gridColumn;
-                    block.innerHTML = `<strong>${this.getAppointmentDisplayName(appt)}</strong><br>${apptStart.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
-                    block.onclick = () => this.onAppointmentClick(appt);
-                    grid.appendChild(block);
+                if (dayColumn) {
+                    const startSlot = dayColumn.querySelector(`[data-hour="${startHour}"]`);
+                    
+                    if (startSlot) {
+                        const block = document.createElement('div');
+                        block.className = `event-block ${appt.status.toLowerCase()}`;
+                        const duration = (apptEnd.getTime() - apptStart.getTime()) / (1000 * 60 * 60);
+                        block.style.height = `calc(var(--time-slot-height) * ${duration})`;
+                        const startHourLocal = apptStart.getHours().toString().padStart(2, '0');
+                        const startMinuteLocal = apptStart.getMinutes().toString().padStart(2, '0');
+                        block.innerHTML = `<strong>${this.getAppointmentDisplayName(appt)}</strong><br>${startHourLocal}:${startMinuteLocal}`;
+                        block.dataset.id = appt.appointment_id;
+                        startSlot.appendChild(block);
+                    }
                 }
             }
         });
@@ -245,6 +283,14 @@ window.Calendar = {
                     }
                 });
             });
+        }
+    },
+
+    getAppointmentDisplayName(appt) {
+        if (this.currentUser.role === 'Tutor') {
+            return appt.student_first_name;
+        } else {
+            return appt.tutor_first_name;
         }
     },
 };

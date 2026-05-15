@@ -68,9 +68,15 @@ const App = {
 
     async checkSession() {
         const { data: { session } } = await this.supabase.auth.getSession();
-        if (session) {
+        if (session && session.user) {
             const { data: profile, error } = await this.supabase.from('users').select('*').eq('auth_uuid', session.user.id).single();
-            if (error) { console.error('Profile fetch error:', error); this.logout(); return; }
+            if (error) { 
+                console.error('Profile fetch error:', error); 
+                // It might be a new user signing up, the trigger will create the profile.
+                // Let's wait a bit and retry.
+                setTimeout(() => this.checkSession(), 1000);
+                return; 
+            }
             if (profile) {
                 if (profile.approval_status !== 'Approved') {
                     alert('Your account is pending approval.');
@@ -81,6 +87,10 @@ const App = {
                 document.getElementById('login-view').classList.add('hidden');
                 document.body.className = `role-${profile.role.toLowerCase().replace(' ', '-')}`;
                 this.renderDashboard();
+            } else {
+                // This case handles the delay between auth user creation and profile trigger execution
+                console.log("Profile not found, will retry...");
+                setTimeout(() => this.checkSession(), 1000); // Retry after a second
             }
         }
     },
@@ -149,7 +159,7 @@ const App = {
     },
 
     getAppointmentDisplayName(appt) {
-        const studentName = (appt.student_first_name || appt.student_last_name) ? `${appt.student_first_name || ''} ${appt.student_last_name || ''}`.trim() : '(Unknown Student)';
+        const studentName = (appt.student_first_name || appt.student_last_name) ? `${appt.student_first_name || ''} ${appt.student_last_name || ''}`.trim() : 'Unknown Student';
         const tutorName = (appt.tutor_first_name || appt.tutor_last_name) ? `${appt.tutor_first_name || ''} ${appt.tutor_last_name || ''}`.trim() : 'Tutor no longer available';
 
         switch (this.currentUser.role) {
@@ -212,7 +222,10 @@ const App = {
         container.innerHTML = `<section class="dashboard-section"><h2>My Appointments</h2><div id="cal-container" class="calendar-container"></div></section>`;
         
         if (window.Calendar) {
-            window.Calendar.init(this.currentUser, null, this.supabase, 'week', document.getElementById('cal-container'), (appt) => this.showAppointmentDetailsModal(appt));
+            window.Calendar.init(this.currentUser, null, this.supabase, 'week', document.getElementById('cal-container'), 
+                (appt) => this.showAppointmentDetailsModal(appt),
+                (appt) => this.getAppointmentDisplayName(appt)
+            );
         }
     },
 
@@ -222,6 +235,35 @@ const App = {
 
         const isCancellable = appt.status === 'Scheduled' && (this.currentUser.role === 'Student' || this.currentUser.role === 'Tutor');
         const isReschedulable = this.currentUser.role === 'Tutor' && appt.status !== 'Completed';
+        
+        const startTime = new Date(appt.start_time);
+        const endTime = new Date(appt.end_time);
+        const studentName = (appt.student_first_name || appt.student_last_name) ? `${appt.student_first_name || ''} ${appt.student_last_name || ''}`.trim() : 'Unknown Student';
+        const tutorName = (appt.tutor_first_name || appt.tutor_last_name) ? `${appt.tutor_first_name || ''} ${appt.tutor_last_name || ''}`.trim() : 'Tutor no longer available';
+
+        let detailsHtml = '';
+        switch (this.currentUser.role) {
+            case 'Student':
+                detailsHtml = `
+                    <p><strong>Tutor:</strong> ${tutorName}</p>
+                    <p><strong>Subject:</strong> ${appt.course_name || 'N/A'}</p>
+                `;
+                break;
+            case 'Tutor':
+                detailsHtml = `
+                    <p><strong>Student:</strong> ${studentName}</p>
+                    <p><strong>Subject:</strong> ${appt.course_name || 'N/A'}</p>
+                `;
+                break;
+            case 'Admin':
+            case 'Super Admin':
+                detailsHtml = `
+                    <p><strong>Tutor:</strong> ${tutorName}</p>
+                    <p><strong>Student:</strong> ${studentName}</p>
+                    <p><strong>Subject:</strong> ${appt.course_name || 'N/A'}</p>
+                `;
+                break;
+        }
 
         m.innerHTML = `
             <div class="modal-backdrop">
@@ -231,9 +273,10 @@ const App = {
                         <button onclick="document.getElementById('modal-container').innerHTML=''">×</button>
                     </div>
                     <div class="modal-body">
-                        <p><strong>With:</strong> ${this.getAppointmentDisplayName(appt)}</p>
-                        <p><strong>Time:</strong> ${new Date(appt.start_time).toLocaleString()}</p>
+                        <p><strong>Date:</strong> ${startTime.toLocaleDateString()}</p>
+                        <p><strong>Time:</strong> ${startTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true })} - ${endTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true })}</p>
                         <p><strong>Status:</strong> <span class="status-badge">${appt.status}</span></p>
+                        ${detailsHtml}
                         ${isCancellable ? `<button id="cancel-appt-btn" class="btn btn-danger mt-3">Cancel Appointment</button>` : ''}
                         ${isReschedulable ? `<button id="reschedule-appt-btn" class="btn btn-secondary mt-3 ml-2">Reschedule</button>` : ''}
                     </div>
