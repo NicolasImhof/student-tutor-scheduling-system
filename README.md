@@ -1,246 +1,30 @@
 # Student-to-Tutor Scheduling System
 
-A comprehensive scheduling and availability management system built with modern web technologies, featuring an integrated calendar with role-based functionality.
+A comprehensive scheduling and availability management system built with modern web technologies. This platform provides a seamless experience for students to book appointments, for tutors to manage their schedules, and for administrators to oversee the entire system.
 
-## 🌟 Features
+## 🌟 Key Features
 
-### Calendar System
-- **Selectable Calendar Tab**: Calendar is now accessible as a dedicated tab rather than being ever-present
-- **Integrated Date Functions**: All date-related features work directly within the calendar
-- **Color-coded Days**:
-  - 🟡 Yellow: Weekends
-  - 🟢 Green: Busy but available days
-  - 🔴 Red: Holidays
-  - 🔵 Blue: Available days
-- **Role-based Functionality**:
-  - **Students**: Book appointments directly by selecting dates and time slots
-  - **Tutors**: Manage availability and time slots
-  - **Admins**: Manage holidays and system-wide scheduling
+- **Interactive Calendar**: A dynamic, role-based calendar that serves as the central hub for all scheduling.
+- **Role-Based Dashboards**: Tailored views and permissions for Students, Tutors, Admins, and Super Admins.
+- **Secure Authentication**: Robust user authentication and session management powered by Supabase.
+- **Automated Scheduling Logic**: Smart database functions handle appointment conflicts, cancellations, and data integrity.
 
-### User Management
-- Multi-role authentication system (Student, Tutor, Admin, Super Admin)
-- Secure JWT-based authentication
-- Role-based dashboard access
+## ✨ Recent Updates
 
-### Technology Stack
-- **Frontend**: HTML5, CSS3, Vanilla JavaScript
-- **Backend**: Node.js, Express.js
-- **Database**: PostgreSQL (local) / Supabase (cloud)
-- **Authentication**: JWT (JSON Web Tokens)
+This project has undergone a significant overhaul of the calendar system, including:
 
-## 🚀 Quick Start
+- **Critical Bug Fixes**: Resolved a crash on login and the persistent "unknown user" bug.
+- **Data Integrity**: Implemented a series of data cleanup and validation scripts to ensure all appointments are valid and correctly scheduled.
+- **UI/UX Enhancements**: The calendar now clearly highlights the current day with a personalized, theme-colored outline.
 
-### Local Development
+## 🛠️ Technology Stack
 
-1. **Clone the repository**
-   ```bash
-   git clone https://github.com/your-username/student-tutor-scheduling.git
-   cd student-tutor-scheduling
-   ```
+- **Frontend**: Vanilla JavaScript, HTML5, CSS3
+- **Backend & Database**: Supabase (PostgreSQL, Authentication, and Auto-generating APIs)
 
-2. **Install dependencies**
-   ```bash
-   npm install
-   ```
+## 🚀 Getting Started
 
-3. **Set up local database** (PostgreSQL)
-   ```bash
-   # Create database
-   createdb tutor_scheduling
-   
-   # Apply schema
-   psql -d tutor_scheduling -f schema.sql
-   psql -d tutor_scheduling -f migrations/001_enhanced_calendar.sql
-   ```
-
-4. **Configure environment**
-   ```bash
-   cp .env.example .env
-   # Edit .env with your database credentials
-   ```
-
-5. **Start the server**
-   ```bash
-   npm run dev
-   ```
-
-6. **Access the application**
-   Open http://localhost:3000 in your browser
-
-### Cloud Deployment (Supabase)
-
-1. **Create Supabase project**
-   - Visit [supabase.com](https://supabase.com)
-   - Create a new project
-   - Note your project URL and API keys
-
-2. **Configure environment**
-   ```bash
-   cp .env.example .env
-   # Update with your Supabase credentials
-   ```
-
-3. **Deploy database**
-   ```bash
-   npm run setup-supabase
-   ```
-
-4. **Start cloud server**
-   ```bash
-   npm run start
-   ```
-
-## 📁 Project Structure
-
-```
-├── index.html              # Main application entry point
-├── script.js               # Frontend JavaScript logic
-├── calendar.js              # Calendar component
-├── style.css               # Application styles
-├── server.js               # Local development server
-├── server-supabase.js      # Supabase cloud server
-├── schema.sql              # Database schema
-├── migrations/             # Database migrations
-├── .github/workflows/      # CI/CD deployment
-└── docs/                   # Documentation
-```
-
-## 🔧 Configuration
-
-### Environment Variables
-
-Create a `.env` file with the following variables:
-
-```env
-# Database (Local)
-DB_HOST=localhost
-DB_PORT=5432
-DB_NAME=tutor_scheduling
-DB_USER=postgres
-DB_PASSWORD=your_password
-
-# Supabase (Cloud)
-SUPABASE_URL=https://your-project-id.supabase.co
-SUPABASE_ANON_KEY=your-anon-key
-SUPABASE_SERVICE_KEY=your-service-key
-
-# JWT
-JWT_SECRET=your-jwt-secret
-
-# Server
-PORT=3000
-```
-
-## 👥 User Roles
-
-### Student
-- View available tutors
-- Book appointments
-- Manage personal appointments
-- View calendar with availability
-
-### Tutor
-- Set availability schedules
-- Manage time slots
-- View booked appointments
-- Update calendar availability
-
-### Admin
-- Approve user accounts
-- Manage system-wide holidays
-- View all appointments
-- Configure scheduling rules
-
-### Super Admin
-- Full system access
-- User management
-- System configuration
-- Advanced scheduling controls
-
-## 🗓️ Calendar Features
-
-### Date Selection
-- Click any date to reveal role-specific functions
-- Integrated booking/availability management
-- Real-time calendar updates
-
-### Time Slot Management
-- Visual time slot selection
-- Availability status indicators
-- Conflict prevention
-
-### Holiday Management
-- System-wide holiday marking
-- Automatic conflict detection
-- Holiday calendar integration
-
-## 🔒 Security
-
-- JWT-based authentication
-- Role-based access control
-- Input validation and sanitization
-- Secure password hashing (bcrypt)
-- CORS protection
-
-## 🚀 Deployment Options
-
-### Option 1: Supabase + Netlify (Recommended)
-- Database: Supabase PostgreSQL
-- Frontend: Netlify static hosting
-- Backend: Supabase Edge Functions or separate server
-
-### Option 2: Traditional Hosting
-- Database: PostgreSQL
-- Frontend: Static hosting (GitHub Pages, Vercel, etc.)
-- Backend: Node.js server (Heroku, DigitalOcean, etc.)
-
-### Option 3: Full Cloud Stack
-- Database: Supabase
-- Frontend: Vercel/Netlify
-- Backend: Supabase Edge Functions
-
-## 📊 API Endpoints
-
-### Authentication
-- `POST /api/login` - User authentication
-
-### Calendar
-- `GET /api/calendar-data` - Get calendar data
-- `POST /api/calendar-day-status` - Update day status
-- `POST /api/appointments` - Book appointment
-- `POST /api/holidays` - Create holiday
-- `DELETE /api/holidays/:date` - Remove holiday
-
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Test thoroughly
-5. Submit a pull request
-
-## 📝 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## 🆘 Support
-
-For support and questions:
-- Create an issue on GitHub
-- Check the [documentation](docs/)
-- Review the deployment guide [DEPLOYMENT.md](DEPLOYMENT.md)
-
-## 🔄 Changelog
-
-### Version 2.0.0
-- ✅ Calendar converted to selectable tab
-- ✅ Integrated date-specific functions
-- ✅ Removed modal-based interactions
-- ✅ Supabase cloud deployment ready
-- ✅ Enhanced user experience
-
-### Version 1.0.0
-- ✅ Basic scheduling functionality
-- ✅ Multi-role authentication
-- ✅ Calendar with color-coding
-- ✅ Local database support
+1.  **Clone the repository.**
+2.  **Set up your Supabase project**: Create a new project on [supabase.com](https://supabase.com) and add your project URL and `anon` key to `script.js`.
+3.  **Apply Migrations**: Use the Supabase CLI or the in-browser SQL editor to apply all the migrations in the `supabase/migrations` directory.
+4.  **Run the application**: Serve the project files with a simple HTTP server (like Python's `http.server` or the Live Server VS Code extension).
