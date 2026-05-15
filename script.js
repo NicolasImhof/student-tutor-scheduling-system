@@ -68,9 +68,15 @@ const App = {
 
     async checkSession() {
         const { data: { session } } = await this.supabase.auth.getSession();
-        if (session) {
+        if (session && session.user) {
             const { data: profile, error } = await this.supabase.from('users').select('*').eq('auth_uuid', session.user.id).single();
-            if (error) { console.error('Profile fetch error:', error); this.logout(); return; }
+            if (error) { 
+                console.error('Profile fetch error:', error); 
+                // It might be a new user signing up, the trigger will create the profile.
+                // Let's wait a bit and retry.
+                setTimeout(() => this.checkSession(), 1000);
+                return; 
+            }
             if (profile) {
                 if (profile.approval_status !== 'Approved') {
                     alert('Your account is pending approval.');
@@ -81,6 +87,10 @@ const App = {
                 document.getElementById('login-view').classList.add('hidden');
                 document.body.className = `role-${profile.role.toLowerCase().replace(' ', '-')}`;
                 this.renderDashboard();
+            } else {
+                // This case handles the delay between auth user creation and profile trigger execution
+                console.log("Profile not found, will retry...");
+                setTimeout(() => this.checkSession(), 1000); // Retry after a second
             }
         }
     },
@@ -149,16 +159,22 @@ const App = {
     },
 
     getAppointmentDisplayName(appt) {
-        const studentName = (appt.student_first_name || appt.student_last_name) ? `${appt.student_first_name || ''} ${appt.student_last_name || ''}`.trim() : '(Unknown Student)';
-        const tutorName = (appt.tutor_first_name || appt.tutor_last_name) ? `${appt.tutor_first_name || ''} ${appt.tutor_last_name || ''}`.trim() : 'Tutor no longer available';
-
+        let displayName;
         switch (this.currentUser.role) {
-            case 'Student': return tutorName;
-            case 'Tutor': return studentName;
+            case 'Student':
+                displayName = appt.tutor_full_name;
+                break;
+            case 'Tutor':
+                displayName = appt.student_full_name;
+                break;
             case 'Admin':
-            case 'Super Admin': return `${tutorName} & ${studentName}`;
-            default: return 'Appointment';
+            case 'Super Admin':
+                displayName = `${appt.tutor_full_name} & ${appt.student_full_name}`;
+                break;
+            default:
+                displayName = 'Appointment';
         }
+        return displayName;
     },
 
     // VIEWS
@@ -184,7 +200,7 @@ const App = {
                 <div class="tutor-card">
                     <div class="tutor-card-header"><h3>${t.first_name} ${t.last_name}</h3><span class="badge">${t.category}</span></div>
                     <div class="tutor-card-body">
-                        <p><strong>Specializations:</strong> ${t.specializations.join(', ')}</p>
+                        <p><strong>Specializations:</strong> ${(t.specializations || []).map(s => s.course_name).join(', ')}</p>
                         <div class="rating">★ ${t.average_rating ? Number(t.average_rating).toFixed(1) : '0.0'} (${t.review_count} reviews)</div>
                     </div>
                     <div class="tutor-card-footer">
@@ -212,7 +228,10 @@ const App = {
         container.innerHTML = `<section class="dashboard-section"><h2>My Appointments</h2><div id="cal-container" class="calendar-container"></div></section>`;
         
         if (window.Calendar) {
-            window.Calendar.init(this.currentUser, null, this.supabase, 'week', document.getElementById('cal-container'), (appt) => this.showAppointmentDetailsModal(appt));
+            window.Calendar.init(this.currentUser, null, this.supabase, 'week', document.getElementById('cal-container'), 
+                (appt) => this.showAppointmentDetailsModal(appt),
+                (appt) => this.getAppointmentDisplayName(appt)
+            );
         }
     },
 
@@ -222,6 +241,33 @@ const App = {
 
         const isCancellable = appt.status === 'Scheduled' && (this.currentUser.role === 'Student' || this.currentUser.role === 'Tutor');
         const isReschedulable = this.currentUser.role === 'Tutor' && appt.status !== 'Completed';
+        
+        const startTime = new Date(appt.start_time);
+        const endTime = new Date(appt.end_time);
+
+        let detailsHtml = '';
+        switch (this.currentUser.role) {
+            case 'Student':
+                detailsHtml = `
+                    <p><strong>Tutor:</strong> ${appt.tutor_full_name}</p>
+                    <p><strong>Subject:</strong> ${appt.course_name || 'N/A'}</p>
+                `;
+                break;
+            case 'Tutor':
+                detailsHtml = `
+                    <p><strong>Student:</strong> ${appt.student_full_name}</p>
+                    <p><strong>Subject:</strong> ${appt.course_name || 'N/A'}</p>
+                `;
+                break;
+            case 'Admin':
+            case 'Super Admin':
+                detailsHtml = `
+                    <p><strong>Tutor:</strong> ${appt.tutor_full_name}</p>
+                    <p><strong>Student:</strong> ${appt.student_full_name}</p>
+                    <p><strong>Subject:</strong> ${appt.course_name || 'N/A'}</p>
+                `;
+                break;
+        }
 
         m.innerHTML = `
             <div class="modal-backdrop">
@@ -231,9 +277,10 @@ const App = {
                         <button onclick="document.getElementById('modal-container').innerHTML=''">×</button>
                     </div>
                     <div class="modal-body">
-                        <p><strong>With:</strong> ${this.getAppointmentDisplayName(appt)}</p>
-                        <p><strong>Time:</strong> ${new Date(appt.start_time).toLocaleString()}</p>
+                        <p><strong>Date:</strong> ${startTime.toLocaleDateString()}</p>
+                        <p><strong>Time:</strong> ${startTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true })} - ${endTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true })}</p>
                         <p><strong>Status:</strong> <span class="status-badge">${appt.status}</span></p>
+                        ${detailsHtml}
                         ${isCancellable ? `<button id="cancel-appt-btn" class="btn btn-danger mt-3">Cancel Appointment</button>` : ''}
                         ${isReschedulable ? `<button id="reschedule-appt-btn" class="btn btn-secondary mt-3 ml-2">Reschedule</button>` : ''}
                     </div>
@@ -257,27 +304,67 @@ const App = {
 
     async renderMyReviews(container) {
         const isStudent = this.currentUser.role === 'Student';
-        let reviewableTutors = [];
+        let reviewableAppointments = [];
 
+        // --- Data Fetching ---
         if (isStudent) {
-            const { data: appts, error: apptsError } = await this.supabase
-                .from('appointments_enhanced')
-                .select('tutor_id, tutor:tutor_id(user_id, first_name, last_name)') // Select tutor's user_id
-                .eq('student_id', this.currentUser.user_id)
-                .in('status', ['Completed', 'Scheduled']);
+            try {
+                // 1. Get all of the student's completed appointments.
+                const { data: completedAppts, error: apptsError } = await this.supabase
+                    .from('appointments_enhanced') // Use the base table for reliability
+                    .select('appointment_id, start_time, tutor_id, course_id')
+                    .eq('student_id', this.currentUser.user_id)
+                    .eq('status', 'Completed');
+                if (apptsError) throw apptsError;
 
-            if (apptsError) console.error('Error fetching tutors for review:', apptsError);
-            else if (appts) {
-                // Get unique tutors, filtering out any nulls
-                const uniqueTutors = [...new Map(
-                    appts
-                    .filter(item => item.tutor) // Ensure tutor object is not null
-                    .map(item => [item.tutor.user_id, item.tutor])
-                ).values()];
-                reviewableTutors = uniqueTutors;
+                if (!completedAppts || completedAppts.length === 0) {
+                    reviewableAppointments = [];
+                } else {
+                    // 2. Get all appointment IDs the student has already reviewed.
+                    const { data: existingReviews, error: reviewsError } = await this.supabase
+                        .from('reviews')
+                        .select('appointment_id')
+                        .eq('student_id', this.currentUser.user_id)
+                        .not('appointment_id', 'is', null);
+                    if (reviewsError) throw reviewsError;
+
+                    // 3. Filter to find appointments that haven't been reviewed yet.
+                    const reviewedAppointmentIds = new Set((existingReviews || []).map(r => r.appointment_id));
+                    const unreviewedAppts = completedAppts.filter(appt => !reviewedAppointmentIds.has(appt.appointment_id));
+
+                    if (unreviewedAppts.length > 0) {
+                        // 4. Gather all unique IDs for tutors and courses that need details.
+                        const tutorIds = [...new Set(unreviewedAppts.map(a => a.tutor_id))];
+                        const courseIds = [...new Set(unreviewedAppts.map(a => a.course_id))];
+
+                        // 5. Fetch all details securely and in parallel.
+                        const [tutorsRes, coursesRes] = await Promise.all([
+                            this.supabase.rpc('get_users_by_ids', { p_user_ids: tutorIds }),
+                            this.supabase.from('courses').select('course_id, course_name').in('course_id', courseIds)
+                        ]);
+
+                        if (tutorsRes.error) throw new Error(`Failed to fetch tutors for reviews: ${tutorsRes.error.message}`);
+                        if (coursesRes.error) throw new Error(`Failed to fetch courses for reviews: ${coursesRes.error.message}`);
+                        
+                        // 6. Create lookup maps for easy data access.
+                        const tutorMap = new Map(tutorsRes.data.map(t => [t.user_id, t]));
+                        const courseMap = new Map(coursesRes.data.map(c => [c.course_id, c]));
+
+                        // 7. "Hydrate" the appointment objects with the fetched details.
+                        reviewableAppointments = unreviewedAppts.map(appt => ({
+                            ...appt,
+                            tutor: tutorMap.get(appt.tutor_id),
+                            course: courseMap.get(appt.course_id)
+                        })).filter(appt => appt.tutor && appt.course); // Final safety filter
+                    }
+                }
+            } catch (error) {
+                console.error('Error fetching data for reviewable appointments:', error);
+                reviewableAppointments = []; // Ensure it's an empty array on error
             }
         }
 
+        // --- Initial Render (Shell) ---
         container.innerHTML = `
             <section class="dashboard-section">
                 <h2>My Reviews</h2>
@@ -285,10 +372,12 @@ const App = {
                     <form id="review-form" class="card p-3 mb-4">
                         <h3>Write a Review</h3>
                         <div class="form-group">
-                            <label for="tutor-select">Select a Tutor</label>
-                            <select id="tutor-select" class="form-control" required>
-                                <option value="">-- Select a Tutor --</option>
-                                ${reviewableTutors.map(t => `<option value="${t.user_id}">${t.first_name} ${t.last_name}</option>`).join('')}
+                            <label for="appointment-select">Select a Completed Session</label>
+                            <select id="appointment-select" class="form-control" required>
+                                <option value="">-- Select a Session --</option>
+                                ${reviewableAppointments.filter(appt => appt.tutor && appt.course).map(appt =>
+                                    `<option value="${appt.appointment_id}">${appt.tutor.first_name} ${appt.tutor.last_name} - ${appt.course.course_name} (${new Date(appt.start_time).toLocaleDateString()})</option>`
+                                ).join('')}
                             </select>
                         </div>
                         <div class="form-group">
@@ -312,54 +401,45 @@ const App = {
             </section>
         `;
 
+        // --- Event Listeners for Student Form ---
         if (isStudent) {
             document.getElementById('review-form').onsubmit = async (e) => {
                 e.preventDefault();
-                const tutorId = document.getElementById('tutor-select').value;
+                const appointmentId = document.getElementById('appointment-select').value;
                 const rating = document.getElementById('rating-select').value;
                 const comment = document.getElementById('review-comment').value;
 
-                if (!tutorId) { alert('Please select a tutor.'); return; }
+                if (!appointmentId) { alert('Please select a session to review.'); return; }
 
-                // Find the latest completed appointment with this tutor to link the review
-                const { data: latestAppt, error: apptError } = await this.supabase
-                    .from('appointments_enhanced')
-                    .select('appointment_id')
-                    .eq('student_id', this.currentUser.user_id)
-                    .eq('tutor_id', tutorId)
-                    .eq('status', 'Completed')
-                    .order('start_time', { ascending: false })
-                    .limit(1)
-                    .single();
-                
-                if (apptError || !latestAppt) {
-                    alert('Could not find a completed appointment to link this review to. You can only review after a session is completed.');
-                    return;
-                }
+                const selectedAppointment = reviewableAppointments.find(a => a.appointment_id == appointmentId);
 
-                const { error } = await this.supabase.from('reviews').insert([
-                    { student_id: this.currentUser.user_id, tutor_id: tutorId, rating, comment, appointment_id: latestAppt.appointment_id }
-                ]);
+                const { error } = await this.supabase.from('reviews').insert([{
+                    student_id: this.currentUser.user_id,
+                    tutor_id: selectedAppointment.tutor.user_id, // We need to get this from the appointment object
+                    rating,
+                    comment,
+                    appointment_id: appointmentId
+                }]);
 
                 if (error) {
                     alert(`Error submitting review: ${error.message}`);
                 } else {
                     alert('Review submitted successfully!');
-                    this.renderMyReviews(container);
+                    this.renderMyReviews(container); // Re-render to show the new review and update the form
                 }
             };
         }
 
-        // Load existing reviews
+        // --- Render Existing Reviews ---
         const list = document.getElementById('rev-list');
         if (!list) return;
         list.innerHTML = 'Loading...';
 
         try {
-            const columns = isStudent ? '*, appointments_enhanced!inner(*, courses(course_name))' : '*, student:student_id(*), tutor:tutor_id(*), appointments_enhanced!inner(*, courses(course_name)))';
+            // For displaying reviews, we need more detailed info
             const { data: reviews, error } = await this.supabase
                 .from('reviews')
-                .select(columns)
+                .select('*, appointment:appointment_id(course:course_id(course_name))')
                 .eq(isStudent ? 'student_id' : 'tutor_id', this.currentUser.user_id);
 
             if (error) throw error;
@@ -369,39 +449,44 @@ const App = {
                 return;
             }
 
+            // Re-fetch tutor data to build a map for name lookup, fixing the regression.
             let tutorMap = {};
             if (isStudent) {
-                const { data: tutors, error: tutorsError } = await this.supabase.rpc('get_student_tutor_list');
-
-                if (tutorsError) {
-                    console.error("Couldn't fetch tutor list via RPC:", tutorsError);
-                } else if (tutors) {
+                const { data: tutors, error: rpcError } = await this.supabase.rpc('get_student_tutor_list');
+                if (rpcError) {
+                    console.error("Could not fetch tutor list for reviews:", rpcError);
+                } else {
                     tutors.forEach(t => tutorMap[t.user_id] = t);
                 }
             }
 
-
-
             list.innerHTML = reviews.map(r => {
+                const courseName = r.appointment && r.appointment.course ? r.appointment.course.course_name : 'N/A';
+                const isEdited = r.is_edited ? '<span class="text-muted">(edited)</span>' : '';
                 let reviewSourceInfo = '';
-                const courseName = r.appointments_enhanced && r.appointments_enhanced.courses ? r.appointments_enhanced.courses.course_name : 'N/A';
 
                 if (isStudent) {
                     const tutor = tutorMap[r.tutor_id];
                     const tutorName = tutor ? `${tutor.first_name} ${tutor.last_name}` : 'Tutor no longer available';
                     reviewSourceInfo = ` | For: ${tutorName} | Course: ${courseName}`;
                 } else {
+                    // This part seems to have a bug in the original code, let's simplify for now.
+                    // We need student name here, which we are not fetching yet.
                     reviewSourceInfo = ` | Course: ${courseName}`;
                 }
 
                 return `
                 <div class="review-card p-3 mb-3 card">
                     <div class="review-header d-flex justify-between">
-                        <span>★ ${r.rating}${reviewSourceInfo}</span>
+                        <span>★ ${r.rating} ${isEdited}${reviewSourceInfo}</span>
                         <span class="text-muted">${new Date(r.created_at || Date.now()).toLocaleDateString()}</span>
                     </div>
                     <p class="mt-2">${r.comment}</p>
                     ${r.tutor_response ? `<div class="tutor-response p-2 mt-2 bg-light"><strong>Tutor Response:</strong> ${r.tutor_response}</div>` : ''}
+                    <div class="d-flex mt-2">
+                        ${isStudent ? `<button class="btn btn-sm btn-secondary edit-rev-btn" data-id="${r.review_id}">Edit</button>` : ''}
+                        ${isStudent ? `<button class="btn btn-sm btn-danger ml-2 del-rev-btn" data-id="${r.review_id}">Delete</button>` : ''}
+                    </div>
                     ${this.currentUser.role === 'Tutor' && !r.tutor_response ? `
                         <div class="mt-2">
                             <input type="text" id="reply-${r.review_id}" class="form-control" placeholder="Write a reply...">
@@ -413,8 +498,24 @@ const App = {
                 </div>
             `}).join('');
 
-            // Re-attach event listeners for tutor-specific actions
-            if (!isStudent) {
+            // --- Event Listeners for Existing Reviews ---
+            if (isStudent) {
+                list.querySelectorAll('.edit-rev-btn').forEach(b => b.onclick = () => {
+                    const reviewToEdit = reviews.find(r => r.review_id == b.dataset.id);
+                    this.showReviewEditModal(reviewToEdit, container);
+                });
+                list.querySelectorAll('.del-rev-btn').forEach(b => b.onclick = () => {
+                    this.showConfirmationModal('Are you sure you want to permanently delete this review?', async () => {
+                        const { error } = await this.supabase.from('reviews').delete().eq('review_id', b.dataset.id);
+                        if (error) {
+                            alert(`Error deleting review: ${error.message}`);
+                        } else {
+                            alert('Review deleted successfully.');
+                            this.renderMyReviews(container);
+                        }
+                    });
+                });
+            } else { // Tutor view listeners
                 list.querySelectorAll('.reply-btn').forEach(b => b.onclick = async () => {
                     const reply = document.getElementById(`reply-${b.dataset.id}`).value;
                     await this.supabase.from('reviews').update({ tutor_response: reply }).eq('review_id', b.dataset.id);
@@ -427,8 +528,8 @@ const App = {
                 });
             }
         } catch (error) {
-            console.error('Reviews Error:', error);
-            if (list) list.innerHTML = `<div class="error">${error.message}</div>`;
+            console.error('Error rendering reviews list:', error);
+            if (list) list.innerHTML = `<div class="error">Failed to load reviews: ${error.message}</div>`;
         }
     },
 
@@ -648,7 +749,7 @@ const App = {
             e.preventDefault();
             const fd = new FormData(e.target);
             const isRecurring = document.getElementById('is_recurring').checked;
-            const { error } = await this.supabase.rpc('create_system_event', {
+            const { error } = await this.supabase.rpc('create_event_and_cancel_appointments', {
                 p_name: fd.get('name'), p_start_date: fd.get('start'), p_end_date: fd.get('end'), 
                 p_event_type: fd.get('type'), p_is_recurring: isRecurring
             });
@@ -706,6 +807,12 @@ const App = {
                         <div class="booking-form-container mt-4">
                             <input type="date" id="booking-date" class="form-control mb-2">
                             <div id="time-slots-container" class="time-slots-container mt-3"></div>
+                            <div class="form-group mt-3">
+                                <label for="course-select">Select a Course</label>
+                                <select id="course-select" class="form-control" required>
+                                    ${tutor.specializations.map(s => `<option value="${s.course_id}">${s.course_name}</option>`).join('')}
+                                </select>
+                            </div>
                             <button id="confirm-booking-btn" class="btn btn-primary mt-3" disabled>Confirm Appointment</button>
                         </div>
                         <div id="booking-feedback" class="mt-3"></div>
@@ -808,11 +915,13 @@ const App = {
             const lastSlot = new Date(selectedSlots[selectedSlots.length - 1].dataset.slot);
             const endTime = new Date(lastSlot.getTime() + 30 * 60 * 1000);
 
+            const courseId = document.getElementById('course-select').value;
             const { data, error } = await this.supabase.rpc('book_appointment', {
                 p_student_id: this.currentUser.user_id,
                 p_tutor_id: tutor.user_id,
                 p_start_time: startTime.toISOString(),
-                p_end_time: endTime.toISOString()
+                p_end_time: endTime.toISOString(),
+                p_course_id: courseId
             });
 
             if (error) {
@@ -862,6 +971,59 @@ const App = {
         };
         document.getElementById('confirm-no').onclick = () => {
             document.getElementById('modal-container').innerHTML = '';
+        };
+    },
+
+    showReviewEditModal(review, reviewsContainer) {
+        const m = document.getElementById('modal-container');
+        if (!m) return;
+
+        m.innerHTML = `
+            <div class="modal-backdrop">
+                <div class="modal">
+                    <div class="modal-header">
+                        <h3>Edit Your Review</h3>
+                        <button onclick="document.getElementById('modal-container').innerHTML=''">×</button>
+                    </div>
+                    <form id="review-edit-form" class="modal-body">
+                        <div class="form-group">
+                            <label for="rating-edit-select">Rating (1-5)</label>
+                            <select id="rating-edit-select" class="form-control" required>
+                                <option ${review.rating == 5 ? 'selected' : ''} value="5">5 Stars</option>
+                                <option ${review.rating == 4 ? 'selected' : ''} value="4">4 Stars</option>
+                                <option ${review.rating == 3 ? 'selected' : ''} value="3">3 Stars</option>
+                                <option ${review.rating == 2 ? 'selected' : ''} value="2">2 Stars</option>
+                                <option ${review.rating == 1 ? 'selected' : ''} value="1">1 Star</option>
+                            </select>
+                        </div>
+                        <div class="form-group mt-2">
+                            <label for="review-edit-comment">Comment</label>
+                            <textarea id="review-edit-comment" class="form-control" rows="4" required>${review.comment}</textarea>
+                        </div>
+                        <div class="mt-4 d-flex justify-end">
+                            <button type="submit" class="btn btn-primary">Save Changes</button>
+                        </div>
+                    </form>
+                </div>
+            </div>`;
+
+        document.getElementById('review-edit-form').onsubmit = async (e) => {
+            e.preventDefault();
+            const newRating = document.getElementById('rating-edit-select').value;
+            const newComment = document.getElementById('review-edit-comment').value;
+
+            const { error } = await this.supabase
+                .from('reviews')
+                .update({ rating: newRating, comment: newComment, is_edited: true })
+                .eq('review_id', review.review_id);
+
+            if (error) {
+                alert(`Error updating review: ${error.message}`);
+            } else {
+                alert('Review updated successfully!');
+                document.getElementById('modal-container').innerHTML = '';
+                this.renderMyReviews(reviewsContainer);
+            }
         };
     },
 
