@@ -85,12 +85,45 @@ const App = {
         document.body.className = '';
     },
 
-    async checkSession() { try { 
- const { data: { session }, error: sessionError } = await this.supabase.auth.getSession();
- if (sessionError) throw sessionError;
- if (session && session.user) { console.log('Session data:', session); const { data: profile, error } = await this.supabase.from('users').select('*').eq('auth_uuid', session.user.id).single(); if (error) { console.error('Profile fetch error:', error); if (error.code === 'PGRST116') { console.log('Retry'); setTimeout(() => this.checkSession(), 1000); } else { this.logout(); } return; } if (profile) { this.currentUser = { ...session.user, ...profile }; document.getElementById('login-view').classList.add('hidden'); this.renderDashboard(); } } else { document.getElementById('login-view').classList.remove('hidden'); } 
- } catch (err) { console.error('Session check error:', err); }
-            console.error('Session check error:', err);
+    async checkSession() {
+        try {
+            const { data: { session }, error: sessionError } = await this.supabase.auth.getSession();
+            if (sessionError) throw sessionError;
+
+            if (session && session.user) {
+                console.log('Session data:', session);
+                const { data: profile, error } = await this.supabase.from('users').select('*').eq('auth_uuid', session.user.id).single();
+                console.log('Profile data:', profile);
+                console.log('Profile fetch error:', error);
+
+                if (error) {
+                    console.error('Error fetching profile:', error.message);
+                    // If the profile is not found, it might be a new user whose profile hasn't been created yet.
+                    // We can retry a few times before logging them out.
+                    if (error.code === 'PGRST116') { // PGRST116: "Not a single row was returned"
+                        console.log('Profile not found, retrying...');
+                        setTimeout(() => this.checkSession(), 1000); // Retry after 1 second
+                    } else {
+                        this.logout(); // For other errors, log out.
+                    }
+                    return;
+                }
+
+                if (profile) {
+                    this.currentUser = { ...session.user, ...profile };
+                    this.ui.hide('login-view');
+                    this.renderDashboard();
+                } else {
+                    // This case should ideally be handled by the retry logic above.
+                    console.log('Profile is null, logging out.');
+                    this.logout();
+                }
+            } else {
+                this.ui.show('login-view');
+            }
+        } catch (err) {
+            console.error('Error in checkSession:', err);
+            this.ui.show('login-view');
         }
     },
 
