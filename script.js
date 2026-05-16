@@ -273,17 +273,12 @@ const App = {
         
         const startTime = this.toUTCDate(appt.start_time);
         const endTime = this.toUTCDate(appt.end_time);
-        const isReschedulable = this.currentUser.role === 'Tutor' && appt.status !== 'Completed';
-        
-        const startTime = new Date(appt.start_time);
-        const endTime = new Date(appt.end_time);
 
         let detailsHtml = '';
         switch (this.currentUser.role) {
             case 'Student':
                 detailsHtml = `
                     <p><strong>Tutor:</strong> ${appt.tutor_full_name}</p>
-                    <p><strong>Subject:</strong> ${appt.course_name}</p>
                     <p><strong>Subject:</strong> ${appt.course_name || 'N/A'}</p>
                 `;
                 break;
@@ -294,15 +289,6 @@ const App = {
                 `;
                 break;
             default:
-                detailsHtml = `
-                    <p><strong>Tutor:</strong> ${appt.tutor_full_name}</p>
-                    <p><strong>Student:</strong> ${appt.student_full_name}</p>
-                    <p><strong>Subject:</strong> ${appt.course_name}</p>
-                    <p><strong>Subject:</strong> ${appt.course_name || 'N/A'}</p>
-                `;
-                break;
-            case 'Admin':
-            case 'Super Admin':
                 detailsHtml = `
                     <p><strong>Tutor:</strong> ${appt.tutor_full_name}</p>
                     <p><strong>Student:</strong> ${appt.student_full_name}</p>
@@ -325,13 +311,6 @@ const App = {
                             ${isReschedulable ? `<button id="reschedule-appt-btn" class="btn btn-secondary ml-2">Reschedule</button>` : ''}
                             ${this.currentUser.role === 'Tutor' && appt.status === 'Scheduled' ? `<button id="complete-appt-btn" class="btn btn-primary ml-2">Mark Completed</button>` : ''}
                         </div>
-                        <p><strong>Date:</strong> ${startTime.toLocaleDateString()}</p>
-                        <p><strong>Time:</strong> ${startTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true })} - ${endTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true })}</p>
-                        <p><strong>Status:</strong> <span class="status-badge">${appt.status}</span></p>
-                        ${detailsHtml}
-                        ${isCancellable ? `<button id="cancel-appt-btn" class="btn btn-danger mt-3">Cancel Appointment</button>` : ''}
-                        ${isReschedulable ? `<button id="reschedule-appt-btn" class="btn btn-secondary mt-3 ml-2">Reschedule</button>` : ''}
-                    </div>
                 </div>
             </div>`;
 
