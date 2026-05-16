@@ -1,0 +1,1 @@
+\echo '---SYSTEM EVENTS---'\SELECT * FROM system_events;\echo '---WORKING HOURS---'\SELECT * FROM working_hours;

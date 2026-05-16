@@ -85,71 +85,11 @@ const App = {
         document.body.className = '';
     },
 
-    async checkSession() {
-        try {
-            const { data: { session }, error: sessionError } = await this.supabase.auth.getSession();
-            if (sessionError) throw sessionError;
-
-            console.log('Session data:', session);
-            if (session && session.user) {
-                console.log('User ID from session:', session.user.id);
-                const { data: profile, error } = await this.supabase.from('users').select('*').eq('auth_uuid', session.user.id).single();
-                
-                if (error) { 
-                    console.error('Profile fetch error:', error); 
-                    if (error.code === 'PGRST116') {
-                        // User exists in Auth but not in public.users yet
-                        console.log("Profile not found in database, retrying in 1s...");
-                        setTimeout(() => this.checkSession(), 1000);
-                    } else {
-                        alert(`Error fetching user profile: ${error.message}`);
-                        this.logout();
-                    }
-                    return; 
-                }
-
-                if (profile) {
-                    if (profile.approval_status !== 'Approved') {
-                        alert(`Account status: ${profile.approval_status}. Your account must be Approved by a Super Admin.`);
-                        this.logout();
-                        return;
-                    }
-                    this.currentUser = { ...session.user, ...profile };
-                    const loginView = document.getElementById('login-view');
-                    if (loginView) loginView.classList.add('hidden');
-                    document.body.className = `role-${profile.role.toLowerCase().replace(' ', '-')}`;
-                    this.renderDashboard();
-                }
-            } else {
-                console.log('No active session.');
-                const loginView = document.getElementById('login-view');
-                if (loginView) loginView.classList.remove('hidden');
-        const { data: { session } } = await this.supabase.auth.getSession();
-        if (session && session.user) {
-            const { data: profile, error } = await this.supabase.from('users').select('*').eq('auth_uuid', session.user.id).single();
-            if (error) { 
-                console.error('Profile fetch error:', error); 
-                // It might be a new user signing up, the trigger will create the profile.
-                // Let's wait a bit and retry.
-                setTimeout(() => this.checkSession(), 1000);
-                return; 
-            }
-            if (profile) {
-                if (profile.approval_status !== 'Approved') {
-                    alert('Your account is pending approval.');
-                    this.logout();
-                    return;
-                }
-                this.currentUser = { ...session.user, ...profile };
-                document.getElementById('login-view').classList.add('hidden');
-                document.body.className = `role-${profile.role.toLowerCase().replace(' ', '-')}`;
-                this.renderDashboard();
-            } else {
-                // This case handles the delay between auth user creation and profile trigger execution
-                console.log("Profile not found, will retry...");
-                setTimeout(() => this.checkSession(), 1000); // Retry after a second
-            }
-        } catch (err) {
+    async checkSession() { try { 
+ const { data: { session }, error: sessionError } = await this.supabase.auth.getSession();
+ if (sessionError) throw sessionError;
+ if (session && session.user) { console.log('Session data:', session); const { data: profile, error } = await this.supabase.from('users').select('*').eq('auth_uuid', session.user.id).single(); if (error) { console.error('Profile fetch error:', error); if (error.code === 'PGRST116') { console.log('Retry'); setTimeout(() => this.checkSession(), 1000); } else { this.logout(); } return; } if (profile) { this.currentUser = { ...session.user, ...profile }; document.getElementById('login-view').classList.add('hidden'); this.renderDashboard(); } } else { document.getElementById('login-view').classList.remove('hidden'); } 
+ } catch (err) { console.error('Session check error:', err); }
             console.error('Session check error:', err);
         }
     },
