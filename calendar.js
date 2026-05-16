@@ -72,7 +72,7 @@ window.Calendar = {
         endOfWeek.setUTCDate(startOfWeek.getUTCDate() + 6);
         endOfWeek.setUTCHours(23, 59, 59, 999);
 
-        document.getElementById('view-title').textContent = `${startOfWeek.toLocaleDateString()} - ${endOfWeek.toLocaleDateString()}`;
+
         const gridContainer = document.getElementById('calendar-grid-container');
         
         let gridHtml = '<div class="calendar-grid-week">';
