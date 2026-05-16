@@ -1,4 +1,16 @@
 const App = {
+    // UI utility
+    ui: {
+        show(id) {
+            const el = document.getElementById(id);
+            if (el) el.classList.remove('hidden');
+        },
+        hide(id) {
+            const el = document.getElementById(id);
+            if (el) el.classList.add('hidden');
+        }
+    },
+
     // App state
     currentUser: null,
     viewPermissions: {
