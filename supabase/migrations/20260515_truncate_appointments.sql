@@ -1,0 +1,1 @@
+TRUNCATE TABLE appointments_enhanced, reviews CASCADE;

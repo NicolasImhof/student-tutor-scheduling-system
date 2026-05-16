@@ -1,0 +1,1 @@
+INSERT INTO appointments SELECT * FROM appointments_enhanced;

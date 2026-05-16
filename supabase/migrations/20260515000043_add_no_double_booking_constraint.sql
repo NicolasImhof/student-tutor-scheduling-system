@@ -1,0 +1,1 @@
+ALTER TABLE appointments_enhanced ADD CONSTRAINT no_double_booking CHECK (is_slot_available(tutor_id, start_time, end_time));

@@ -284,6 +284,12 @@ footer {
     max-width: 500px;
     box-shadow: 0 5px 15px rgba(0,0,0,0.3);
 }
+.modal.review-modal {
+    max-width: 700px;
+    max-height: 80vh;
+    display: flex;
+    flex-direction: column;
+}
 .modal-header {
     display: flex;
     justify-content: space-between;
@@ -297,6 +303,13 @@ footer {
     background: none;
     font-size: 1.5rem;
     cursor: pointer;
+}
+.modal-body.review-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+    overflow-y: auto;
+    padding-right: 0.5rem;
 }
 
 /* =====================================================================================
@@ -763,3 +776,5 @@ footer {
 
 
 
+. d a y - c o l u m n . t i m e - o f f - e v e n t   {   b a c k g r o u n d - c o l o r :   # f f f 3 c d   ! i m p o r t a n t ;   }   . t i m e - o f f - l a b e l   {   b a c k g r o u n d - c o l o r :   # f f c 1 0 7 ;   c o l o r :   # 8 5 6 4 0 4 ;   }  
+ 
