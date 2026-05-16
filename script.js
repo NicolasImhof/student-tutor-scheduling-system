@@ -17,9 +17,28 @@ const App = {
     async init() {
         const supabaseUrl = 'https://bycjjodkedhynxkckwtg.supabase.co';
         const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ5Y2pqb2RrZWRoeW54a2Nrd3RnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA0OTYzODAsImV4cCI6MjA4NjA3MjM4MH0.mrCDflIMgQvJ0fIEaRJao_pdzLgafgsrlUSDQRCiPqc';
-        this.supabase = supabase.createClient(supabaseUrl, supabaseAnonKey);
+        this.supabase = window.supabase.createClient(supabaseUrl, supabaseAnonKey, {
+            auth: {
+                persistSession: true,
+                storage: window.localStorage
+            }
+        });
         this.setupEventListeners();
         this.checkSession();
+    },
+
+    toUTCDate(dateStr) {
+        if (!dateStr) return new Date(new Date().toISOString());
+        if (dateStr instanceof Date) return dateStr;
+        if (typeof dateStr === 'string' && !dateStr.includes('T') && !dateStr.includes('Z')) {
+            // Handle "YYYY-MM-DD HH:MM:SS" by replacing space with T and adding Z
+            return new Date(dateStr.replace(' ', 'T') + 'Z');
+        }
+        return new Date(dateStr);
+    },
+
+    getUTCToday() {
+        return new Date(new Date().toISOString().split('T')[0] + 'T00:00:00Z');
     },
 
     setupEventListeners() {
@@ -67,21 +86,44 @@ const App = {
     },
 
     async checkSession() {
-        const { data: { session } } = await this.supabase.auth.getSession();
-        if (session) {
-            const { data: profile, error } = await this.supabase.from('users').select('*').eq('auth_uuid', session.user.id).single();
-            if (error) { console.error('Profile fetch error:', error); this.logout(); return; }
-            if (profile) {
-                if (profile.approval_status !== 'Approved') {
-                    alert('Your account is pending approval.');
-                    this.logout();
+        try {
+            const { data: { session }, error: sessionError } = await this.supabase.auth.getSession();
+            if (sessionError) throw sessionError;
+
+            if (session && session.user) {
+                console.log('Session data:', session);
+                const { data: profile, error } = await this.supabase.from('users').select('*').eq('auth_uuid', session.user.id).single();
+                console.log('Profile data:', profile);
+                console.log('Profile fetch error:', error);
+
+                if (error) {
+                    console.error('Error fetching profile:', error.message);
+                    // If the profile is not found, it might be a new user whose profile hasn't been created yet.
+                    // We can retry a few times before logging them out.
+                    if (error.code === 'PGRST116') { // PGRST116: "Not a single row was returned"
+                        console.log('Profile not found, retrying...');
+                        setTimeout(() => this.checkSession(), 1000); // Retry after 1 second
+                    } else {
+                        this.logout(); // For other errors, log out.
+                    }
                     return;
                 }
-                this.currentUser = { ...session.user, ...profile };
-                document.getElementById('login-view').classList.add('hidden');
-                document.body.className = `role-${profile.role.toLowerCase().replace(' ', '-')}`;
-                this.renderDashboard();
+
+                if (profile) {
+                    this.currentUser = { ...session.user, ...profile };
+                    this.ui.hide('login-view');
+                    this.renderDashboard();
+                } else {
+                    // This case should ideally be handled by the retry logic above.
+                    console.log('Profile is null, logging out.');
+                    this.logout();
+                }
+            } else {
+                this.ui.show('login-view');
             }
+        } catch (err) {
+            console.error('Error in checkSession:', err);
+            this.ui.show('login-view');
         }
     },
 
@@ -112,6 +154,8 @@ const App = {
         }
         nav.innerHTML = links;
         document.getElementById('user-name').textContent = `${this.currentUser.first_name} ${this.currentUser.last_name}`;
+        console.log("DEBUG: Dashboard currentUser:", this.currentUser);
+        console.log("DEBUG: Dashboard category:", this.currentUser.category);
         this.setupDashboardEventListeners();
         this.loadView(this.getDefaultViewForRole(this.currentUser.role));
     },
@@ -149,16 +193,22 @@ const App = {
     },
 
     getAppointmentDisplayName(appt) {
-        const studentName = (appt.student_first_name || appt.student_last_name) ? `${appt.student_first_name || ''} ${appt.student_last_name || ''}`.trim() : '(Unknown Student)';
-        const tutorName = (appt.tutor_first_name || appt.tutor_last_name) ? `${appt.tutor_first_name || ''} ${appt.tutor_last_name || ''}`.trim() : 'Tutor no longer available';
-
+        let displayName;
         switch (this.currentUser.role) {
-            case 'Student': return tutorName;
-            case 'Tutor': return studentName;
+            case 'Student':
+                displayName = appt.tutor_full_name;
+                break;
+            case 'Tutor':
+                displayName = appt.student_full_name;
+                break;
             case 'Admin':
-            case 'Super Admin': return `${tutorName} & ${studentName}`;
-            default: return 'Appointment';
+            case 'Super Admin':
+                displayName = `${appt.tutor_full_name} & ${appt.student_full_name}`;
+                break;
+            default:
+                displayName = 'Appointment';
         }
+        return displayName;
     },
 
     // VIEWS
@@ -184,7 +234,7 @@ const App = {
                 <div class="tutor-card">
                     <div class="tutor-card-header"><h3>${t.first_name} ${t.last_name}</h3><span class="badge">${t.category}</span></div>
                     <div class="tutor-card-body">
-                        <p><strong>Specializations:</strong> ${t.specializations.join(', ')}</p>
+                        <p><strong>Specializations:</strong> ${(t.specializations || []).map(s => s.course_name).join(', ')}</p>
                         <div class="rating">★ ${t.average_rating ? Number(t.average_rating).toFixed(1) : '0.0'} (${t.review_count} reviews)</div>
                     </div>
                     <div class="tutor-card-footer">
@@ -212,72 +262,181 @@ const App = {
         container.innerHTML = `<section class="dashboard-section"><h2>My Appointments</h2><div id="cal-container" class="calendar-container"></div></section>`;
         
         if (window.Calendar) {
-            window.Calendar.init(this.currentUser, null, this.supabase, 'week', document.getElementById('cal-container'), (appt) => this.showAppointmentDetailsModal(appt));
+            window.Calendar.init(this.currentUser, null, this.supabase, 'week', document.getElementById('cal-container'), 
+                (appt) => this.showAppointmentDetailsModal(appt),
+                (appt) => this.getAppointmentDisplayName(appt)
+            );
         }
     },
 
-    async showAppointmentDetailsModal(appt) {
+    async showAppointmentDetailsModal(appointment) {
         const m = document.getElementById('modal-container');
         if (!m) return;
 
+        m.innerHTML = `<div class="modal-backdrop"><div class="modal"><div class="modal-body">Loading details...</div></div></div>`;
+
+        // The appointment object from the calendar is minimal. Fetch all the necessary details.
+        const [apptRes, studentRes, courseRes] = await Promise.all([
+            this.supabase.from('appointments_enhanced').select('*').eq('appointment_id', appointment.appointment_id).single(),
+            this.supabase.rpc('get_users_by_ids', { p_user_ids: [appointment.student_id] }),
+            this.supabase.from('courses').select('course_name').eq('course_id', appointment.course_id).single()
+        ]);
+
+        if (apptRes.error || studentRes.error || courseRes.error || !apptRes.data) {
+            console.error("Failed to fetch all appointment details:", apptRes.error || studentRes.error || courseRes.error);
+            m.innerHTML = `<div class="modal-backdrop"><div class="modal"><div class="modal-body error">Failed to load appointment details.</div><button onclick="document.getElementById('modal-container').innerHTML=''">Close</button></div></div>`;
+            return;
+        }
+        
+        const appt = apptRes.data;
+        const student = studentRes.data[0];
+        appt.student_full_name = student ? `${student.first_name} ${student.last_name}` : 'Unknown Student';
+        appt.course_name = courseRes.data ? courseRes.data.course_name : 'N/A';
+        
+        // We also need the tutor's name
+        const { data: tutor, error: tutorError } = await this.supabase.rpc('get_users_by_ids', { p_user_ids: [appt.tutor_id] });
+        if (tutorError || !tutor || tutor.length === 0) {
+            appt.tutor_full_name = 'Tutor no longer available';
+        } else {
+            appt.tutor_full_name = `${tutor[0].first_name} ${tutor[0].last_name}`;
+        }
+
         const isCancellable = appt.status === 'Scheduled' && (this.currentUser.role === 'Student' || this.currentUser.role === 'Tutor');
-        const isReschedulable = this.currentUser.role === 'Tutor' && appt.status !== 'Completed';
+        const isReschedulable = (this.currentUser.role === 'Tutor' || this.currentUser.role === 'Student') && appt.status === 'Scheduled';
+        
+        const startTime = this.toUTCDate(appt.start_time);
+        const endTime = this.toUTCDate(appt.end_time);
+
+        let detailsHtml = '';
+        switch (this.currentUser.role) {
+            case 'Student':
+                detailsHtml = `
+                    <p><strong>Tutor:</strong> ${appt.tutor_full_name}</p>
+                    <p><strong>Subject:</strong> ${appt.course_name || 'N/A'}</p>
+                `;
+                break;
+            case 'Tutor':
+                detailsHtml = `
+                    <p><strong>Student:</strong> ${appt.student_full_name}</p>
+                    <p><strong>Subject:</strong> ${appt.course_name}</p>
+                `;
+                break;
+            default:
+                detailsHtml = `
+                    <p><strong>Tutor:</strong> ${appt.tutor_full_name}</p>
+                    <p><strong>Student:</strong> ${appt.student_full_name}</p>
+                    <p><strong>Subject:</strong> ${appt.course_name || 'N/A'}</p>
+                `;
+                break;
+        }
 
         m.innerHTML = `
             <div class="modal-backdrop">
                 <div class="modal">
-                    <div class="modal-header">
-                        <h3>Appointment Details</h3>
-                        <button onclick="document.getElementById('modal-container').innerHTML=''">×</button>
-                    </div>
+                    <div class="modal-header"><h3>Appointment Details</h3><button onclick="document.getElementById('modal-container').innerHTML=''">×</button></div>
                     <div class="modal-body">
-                        <p><strong>With:</strong> ${this.getAppointmentDisplayName(appt)}</p>
-                        <p><strong>Time:</strong> ${new Date(appt.start_time).toLocaleString()}</p>
+                        <p><strong>Date:</strong> ${startTime.toLocaleDateString([], { timeZone: 'UTC' })}</p>
+                        <p><strong>Time:</strong> ${startTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true, timeZone: 'UTC' })} - ${endTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true, timeZone: 'UTC' })}</p>
                         <p><strong>Status:</strong> <span class="status-badge">${appt.status}</span></p>
-                        ${isCancellable ? `<button id="cancel-appt-btn" class="btn btn-danger mt-3">Cancel Appointment</button>` : ''}
-                        ${isReschedulable ? `<button id="reschedule-appt-btn" class="btn btn-secondary mt-3 ml-2">Reschedule</button>` : ''}
-                    </div>
+                        ${detailsHtml}
+                        <div class="modal-actions mt-4">
+                            ${isCancellable ? `<button id="cancel-appt-btn" class="btn btn-danger">Cancel</button>` : ''}
+                            ${isReschedulable ? `<button id="reschedule-appt-btn" class="btn btn-secondary ml-2">Reschedule</button>` : ''}
+                            ${this.currentUser.role === 'Tutor' && appt.status === 'Scheduled' ? `<button id="complete-appt-btn" class="btn btn-primary ml-2">Mark Completed</button>` : ''}
+                        </div>
                 </div>
             </div>`;
 
         if (isCancellable) {
-            document.getElementById('cancel-appt-btn').onclick = async () => {
-                if (confirm('Are you sure you want to cancel this appointment?')) {
+            document.getElementById('cancel-appt-btn').onclick = () => {
+                this.showConfirmationModal('Are you sure you want to cancel?', async () => {
                     await this.supabase.rpc('cancel_appointment', { p_appointment_id: appt.appointment_id, p_user_id: this.currentUser.user_id, p_role: this.currentUser.role });
-                    document.getElementById('modal-container').innerHTML = '';
                     this.loadView('my-appointments');
-                }
+                });
             };
         }
 
         if (isReschedulable) {
             document.getElementById('reschedule-appt-btn').onclick = () => this.showRescheduleModal(appt);
         }
+
+        if (this.currentUser.role === 'Tutor' && appt.status === 'Scheduled') {
+            document.getElementById('complete-appt-btn').onclick = async () => {
+                const { error } = await this.supabase.rpc('complete_appointment', { p_appointment_id: appt.appointment_id, p_tutor_id: this.currentUser.user_id });
+                if (error) {
+                    alert(`Error completing appointment: ${error.message}`);
+                } else {
+                    alert('Appointment marked as completed.');
+                    document.getElementById('modal-container').innerHTML = '';
+                    this.loadView('my-appointments');
+                }
+            };
+        }
     },
 
     async renderMyReviews(container) {
         const isStudent = this.currentUser.role === 'Student';
-        let reviewableTutors = [];
+        let reviewableAppointments = [];
 
+        // --- Data Fetching ---
         if (isStudent) {
-            const { data: appts, error: apptsError } = await this.supabase
-                .from('appointments_enhanced')
-                .select('tutor_id, tutor:tutor_id(user_id, first_name, last_name)') // Select tutor's user_id
-                .eq('student_id', this.currentUser.user_id)
-                .in('status', ['Completed', 'Scheduled']);
+            try {
+                // 1. Get all of the student's completed appointments.
+                const { data: completedAppts, error: apptsError } = await this.supabase
+                    .from('appointments_enhanced') // Use the base table for reliability
+                    .select('appointment_id, start_time, tutor_id, course_id')
+                    .eq('student_id', this.currentUser.user_id)
+                    .eq('status', 'Completed');
+                if (apptsError) throw apptsError;
 
-            if (apptsError) console.error('Error fetching tutors for review:', apptsError);
-            else if (appts) {
-                // Get unique tutors, filtering out any nulls
-                const uniqueTutors = [...new Map(
-                    appts
-                    .filter(item => item.tutor) // Ensure tutor object is not null
-                    .map(item => [item.tutor.user_id, item.tutor])
-                ).values()];
-                reviewableTutors = uniqueTutors;
+                if (!completedAppts || completedAppts.length === 0) {
+                    reviewableAppointments = [];
+                } else {
+                    // 2. Get all appointment IDs the student has already reviewed.
+                    const { data: existingReviews, error: reviewsError } = await this.supabase
+                        .from('reviews')
+                        .select('appointment_id')
+                        .eq('student_id', this.currentUser.user_id)
+                        .not('appointment_id', 'is', null);
+                    if (reviewsError) throw reviewsError;
+
+                    // 3. Filter to find appointments that haven't been reviewed yet.
+                    const reviewedAppointmentIds = new Set((existingReviews || []).map(r => r.appointment_id));
+                    const unreviewedAppts = completedAppts.filter(appt => !reviewedAppointmentIds.has(appt.appointment_id));
+
+                    if (unreviewedAppts.length > 0) {
+                        // 4. Gather all unique IDs for tutors and courses that need details.
+                        const tutorIds = [...new Set(unreviewedAppts.map(a => a.tutor_id))];
+                        const courseIds = [...new Set(unreviewedAppts.map(a => a.course_id))];
+
+                        // 5. Fetch all details securely and in parallel.
+                        const [tutorsRes, coursesRes] = await Promise.all([
+                            this.supabase.rpc('get_users_by_ids', { p_user_ids: tutorIds }),
+                            this.supabase.from('courses').select('course_id, course_name').in('course_id', courseIds)
+                        ]);
+
+                        if (tutorsRes.error) throw new Error(`Failed to fetch tutors for reviews: ${tutorsRes.error.message}`);
+                        if (coursesRes.error) throw new Error(`Failed to fetch courses for reviews: ${coursesRes.error.message}`);
+                        
+                        // 6. Create lookup maps for easy data access.
+                        const tutorMap = new Map(tutorsRes.data.map(t => [t.user_id, t]));
+                        const courseMap = new Map(coursesRes.data.map(c => [c.course_id, c]));
+
+                        // 7. "Hydrate" the appointment objects with the fetched details.
+                        reviewableAppointments = unreviewedAppts.map(appt => ({
+                            ...appt,
+                            tutor: tutorMap.get(appt.tutor_id),
+                            course: courseMap.get(appt.course_id)
+                        })).filter(appt => appt.tutor && appt.course); // Final safety filter
+                    }
+                }
+            } catch (error) {
+                console.error('Error fetching data for reviewable appointments:', error);
+                reviewableAppointments = []; // Ensure it's an empty array on error
             }
         }
 
+        // --- Initial Render (Shell) ---
         container.innerHTML = `
             <section class="dashboard-section">
                 <h2>My Reviews</h2>
@@ -285,10 +444,12 @@ const App = {
                     <form id="review-form" class="card p-3 mb-4">
                         <h3>Write a Review</h3>
                         <div class="form-group">
-                            <label for="tutor-select">Select a Tutor</label>
-                            <select id="tutor-select" class="form-control" required>
-                                <option value="">-- Select a Tutor --</option>
-                                ${reviewableTutors.map(t => `<option value="${t.user_id}">${t.first_name} ${t.last_name}</option>`).join('')}
+                            <label for="appointment-select">Select a Completed Session</label>
+                            <select id="appointment-select" class="form-control" required>
+                                <option value="">-- Select a Session --</option>
+                                ${reviewableAppointments.filter(appt => appt.tutor && appt.course).map(appt =>
+                                    `<option value="${appt.appointment_id}">${appt.tutor.first_name} ${appt.tutor.last_name} - ${appt.course.course_name} (${this.toUTCDate(appt.start_time).toLocaleDateString([], {timeZone: 'UTC'})})</option>`
+                                ).join('')}
                             </select>
                         </div>
                         <div class="form-group">
@@ -312,109 +473,109 @@ const App = {
             </section>
         `;
 
+        // --- Event Listeners for Student Form ---
         if (isStudent) {
             document.getElementById('review-form').onsubmit = async (e) => {
                 e.preventDefault();
-                const tutorId = document.getElementById('tutor-select').value;
+                const appointmentId = document.getElementById('appointment-select').value;
                 const rating = document.getElementById('rating-select').value;
                 const comment = document.getElementById('review-comment').value;
 
-                if (!tutorId) { alert('Please select a tutor.'); return; }
+                if (!appointmentId) { alert('Please select a session to review.'); return; }
 
-                // Find the latest completed appointment with this tutor to link the review
-                const { data: latestAppt, error: apptError } = await this.supabase
-                    .from('appointments_enhanced')
-                    .select('appointment_id')
-                    .eq('student_id', this.currentUser.user_id)
-                    .eq('tutor_id', tutorId)
-                    .eq('status', 'Completed')
-                    .order('start_time', { ascending: false })
-                    .limit(1)
-                    .single();
-                
-                if (apptError || !latestAppt) {
-                    alert('Could not find a completed appointment to link this review to. You can only review after a session is completed.');
-                    return;
-                }
+                const selectedAppointment = reviewableAppointments.find(a => a.appointment_id == appointmentId);
 
-                const { error } = await this.supabase.from('reviews').insert([
-                    { student_id: this.currentUser.user_id, tutor_id: tutorId, rating, comment, appointment_id: latestAppt.appointment_id }
-                ]);
+                const { error } = await this.supabase.from('reviews').insert([{
+                    student_id: this.currentUser.user_id,
+                    tutor_id: selectedAppointment.tutor.user_id, // We need to get this from the appointment object
+                    rating,
+                    comment,
+                    appointment_id: appointmentId
+                }]);
 
                 if (error) {
                     alert(`Error submitting review: ${error.message}`);
                 } else {
                     alert('Review submitted successfully!');
-                    this.renderMyReviews(container);
+                    this.renderMyReviews(container); // Re-render to show the new review and update the form
                 }
             };
         }
 
-        // Load existing reviews
+        // --- Render Existing Reviews ---
         const list = document.getElementById('rev-list');
         if (!list) return;
         list.innerHTML = 'Loading...';
 
         try {
-            const columns = isStudent ? '*, appointments_enhanced!inner(*, courses(course_name))' : '*, student:student_id(*), tutor:tutor_id(*), appointments_enhanced!inner(*, courses(course_name)))';
-            const { data: reviews, error } = await this.supabase
-                .from('reviews')
-                .select(columns)
-                .eq(isStudent ? 'student_id' : 'tutor_id', this.currentUser.user_id);
+            const isStudent = this.currentUser.role === 'Student';
+            const rpcName = isStudent ? 'get_student_reviews_data' : 'get_tutor_reviews_data';
+            const paramName = isStudent ? 'p_student_id' : 'p_tutor_id';
+            
+            console.log(`DEBUG: Fetching reviews using ${rpcName} for ${paramName}:`, this.currentUser.user_id);
+            const { data: reviews, error } = await this.supabase.rpc(rpcName, { [paramName]: parseInt(this.currentUser.user_id) });
+
+            console.log("DEBUG: Raw RPC Reviews Data:", reviews);
+            if (reviews && reviews.length > 0) {
+                console.log("DEBUG: Keys in first review object:", Object.keys(reviews[0]));
+            }
 
             if (error) throw error;
 
             if (!reviews || reviews.length === 0) {
-                list.innerHTML = '<div class="info">No reviews found.</div>';
+                list.innerHTML = `<div class="info">No reviews found for ${this.currentUser.first_name} (ID: ${this.currentUser.user_id}).</div>`;
                 return;
             }
 
-            let tutorMap = {};
-            if (isStudent) {
-                const { data: tutors, error: tutorsError } = await this.supabase.rpc('get_student_tutor_list');
-
-                if (tutorsError) {
-                    console.error("Couldn't fetch tutor list via RPC:", tutorsError);
-                } else if (tutors) {
-                    tutors.forEach(t => tutorMap[t.user_id] = t);
-                }
-            }
-
-
-
             list.innerHTML = reviews.map(r => {
-                let reviewSourceInfo = '';
-                const courseName = r.appointments_enhanced && r.appointments_enhanced.courses ? r.appointments_enhanced.courses.course_name : 'N/A';
-
-                if (isStudent) {
-                    const tutor = tutorMap[r.tutor_id];
-                    const tutorName = tutor ? `${tutor.first_name} ${tutor.last_name}` : 'Tutor no longer available';
-                    reviewSourceInfo = ` | For: ${tutorName} | Course: ${courseName}`;
-                } else {
-                    reviewSourceInfo = ` | Course: ${courseName}`;
-                }
+                console.log("DEBUG: Review Object:", r);
+                const isEdited = r.is_edited ? '<span class="text-muted">(edited)</span>' : '';
+                const tutorName = `${r.first_name || ""} ${r.last_name || ""}`.trim();
+                const reviewSourceInfo = isStudent 
+                    ? ` | For: ${tutorName || 'N/A'} | Course: ${r.course_name || 'N/A'}` 
+                    : ` | Course: ${r.course_name || 'N/A'}`;
 
                 return `
                 <div class="review-card p-3 mb-3 card">
                     <div class="review-header d-flex justify-between">
-                        <span>★ ${r.rating}${reviewSourceInfo}</span>
-                        <span class="text-muted">${new Date(r.created_at || Date.now()).toLocaleDateString()}</span>
+                        <span>★ ${r.rating} ${isEdited}${reviewSourceInfo}</span>
+                        <span class="text-muted">${this.toUTCDate(r.created_at || Date.now()).toLocaleDateString([], {timeZone: 'UTC'})}</span>
                     </div>
                     <p class="mt-2">${r.comment}</p>
                     ${r.tutor_response ? `<div class="tutor-response p-2 mt-2 bg-light"><strong>Tutor Response:</strong> ${r.tutor_response}</div>` : ''}
-                    ${this.currentUser.role === 'Tutor' && !r.tutor_response ? `
+                    <div class="d-flex mt-2">
+                        ${isStudent ? `<button class="btn btn-sm btn-secondary edit-rev-btn" data-id="${r.review_id}">Edit</button>` : ''}
+                        ${isStudent ? `<button class="btn btn-sm btn-danger ml-2 del-rev-btn" data-id="${r.review_id}">Delete</button>` : ''}
+                    </div>
+                    ${!isStudent && !r.tutor_response ? `
                         <div class="mt-2">
                             <input type="text" id="reply-${r.review_id}" class="form-control" placeholder="Write a reply...">
                             <button class="btn btn-sm btn-primary mt-1 reply-btn" data-id="${r.review_id}">Reply</button>
                         </div>
                     ` : ''}
-                    ${this.currentUser.role === 'Tutor' && !r.deletion_requested ? `<button class="btn btn-sm btn-danger mt-1 req-del" data-id="${r.review_id}">Request Deletion</button>` : ''}
+                    ${!isStudent && !r.deletion_requested ? `<button class="btn btn-sm btn-danger mt-1 req-del" data-id="${r.review_id}">Request Deletion</button>` : ''}
                     ${r.deletion_requested ? `<span class="badge badge-warning mt-1">Deletion Requested</span>` : ''}
                 </div>
             `}).join('');
 
-            // Re-attach event listeners for tutor-specific actions
-            if (!isStudent) {
+            // --- Event Listeners for Existing Reviews ---
+            if (isStudent) {
+                list.querySelectorAll('.edit-rev-btn').forEach(b => b.onclick = () => {
+                    const reviewToEdit = reviews.find(r => r.review_id == b.dataset.id);
+                    this.showReviewEditModal(reviewToEdit, container);
+                });
+                list.querySelectorAll('.del-rev-btn').forEach(b => b.onclick = () => {
+                    this.showConfirmationModal('Are you sure you want to permanently delete this review?', async () => {
+                        const { error } = await this.supabase.from('reviews').delete().eq('review_id', b.dataset.id);
+                        if (error) {
+                            alert(`Error deleting review: ${error.message}`);
+                        } else {
+                            alert('Review deleted successfully.');
+                            this.renderMyReviews(container);
+                        }
+                    });
+                });
+            } else { // Tutor view listeners
                 list.querySelectorAll('.reply-btn').forEach(b => b.onclick = async () => {
                     const reply = document.getElementById(`reply-${b.dataset.id}`).value;
                     await this.supabase.from('reviews').update({ tutor_response: reply }).eq('review_id', b.dataset.id);
@@ -427,8 +588,8 @@ const App = {
                 });
             }
         } catch (error) {
-            console.error('Reviews Error:', error);
-            if (list) list.innerHTML = `<div class="error">${error.message}</div>`;
+            console.error('Error rendering reviews list:', error);
+            if (list) list.innerHTML = `<div class="error">Failed to load reviews: ${error.message}</div>`;
         }
     },
 
@@ -459,7 +620,7 @@ const App = {
                 </div>
             `).join('');
             listEl.querySelectorAll('.cancel-off').forEach(b => b.onclick = async () => {
-                const { error: delError } = await this.supabase.from('time_off_requests').delete().eq('request_id', b.dataset.id);
+                const { error: delError } = await this.supabase.rpc('delete_time_off_request', { p_request_id: parseInt(b.dataset.id), p_tutor_id: this.currentUser.user_id });
                 if (delError) alert(delError.message); else load();
             });
         };
@@ -473,25 +634,27 @@ const App = {
     },
 
     async renderAdminDashboard(container) {
+        const isSuper = this.currentUser.role === 'Super Admin';
         container.innerHTML = `
             <section class="dashboard-section">
-                <h2>Admin Dashboard (${this.currentUser.category})</h2>
+                <h2>${isSuper ? 'Super Admin Dashboard' : 'Admin Dashboard (' + this.currentUser.category + ')'}</h2>
                 <div class="tabs">
                     <button class="tab-btn active" data-tab="tutors">Tutors</button>
                     <button class="tab-btn" data-tab="timeoff">Time Off Requests</button>
+                    ${!isSuper ? '<button class="tab-btn" data-tab="dept-events">Department Events</button>' : ''}
+                    ${isSuper ? '<button class="tab-btn" data-tab="revert-off">Revert Time Off</button>' : ''}
                 </div>
                 <div id="admin-content" class="mt-4"></div>
             </section>
         `;
-        const load = async (tab) => {
-            const adminContent = document.getElementById('admin-content');
-            if (!adminContent) return;
-            if (tab === 'tutors') {
-                const { data } = await this.supabase.from('users').select('*').eq('role', 'Tutor').eq('category', this.currentUser.category);
+        const load = async (tab) => { const adminContent = document.getElementById("admin-content"); if (!adminContent) return; if (tab === "tutors") {
+                const query = isSuper ? this.supabase.from('users').select('*').eq('role', 'Tutor') : this.supabase.from('users').select('*').eq('role', 'Tutor').eq('category', this.currentUser.category);
+                const { data } = await query;
                 adminContent.innerHTML = `<table class="user-table"><thead><tr><th>Name</th><th>Email</th><th>Status</th></tr></thead>
                     <tbody>${(data || []).map(t => `<tr><td>${t.first_name} ${t.last_name}</td><td>${t.email}</td><td>${t.approval_status}</td></tr>`).join('')}</tbody></table>`;
-            } else {
-                const { data } = await this.supabase.from('time_off_requests').select('*, tutor:tutor_id!inner(*)').eq('tutor.category', this.currentUser.category);
+            } else if (tab === 'timeoff') {
+                const query = isSuper ? this.supabase.from('time_off_requests').select('*, tutor:tutor_id(*)') : this.supabase.from('time_off_requests').select('*, tutor:tutor_id!inner(*)').eq('tutor.category', this.currentUser.category);
+                const { data } = await query;
                 adminContent.innerHTML = `<table class="user-table"><thead><tr><th>Tutor</th><th>Dates</th><th>Status</th><th>Action</th></tr></thead>
                     <tbody>${(data || []).map(r => `
                         <tr><td>${r.tutor.first_name}</td><td>${r.start_date} to ${r.end_date}</td><td>${r.status}</td>
@@ -501,6 +664,19 @@ const App = {
                     await this.supabase.from('time_off_requests').update({ status: 'Approved' }).eq('request_id', b.dataset.id);
                     load('timeoff');
                 });
+            } else if (tab === 'revert-off') {
+                const { data } = await this.supabase.from('time_off_requests').select('*, tutor:tutor_id(*)').eq('status', 'Approved');
+                adminContent.innerHTML = `<table class="user-table"><thead><tr><th>Tutor</th><th>Dates</th><th>Action</th></tr></thead>
+                    <tbody>${(data || []).map(r => `
+                        <tr><td>${r.tutor.first_name}</td><td>${r.start_date} to ${r.end_date}</td>
+                        <td><button class="btn btn-sm btn-warning rev-off" data-id="${r.request_id}">Revert</button></td></tr>
+                    `).join('')}</tbody></table>`;
+                adminContent.querySelectorAll('.rev-off').forEach(b => b.onclick = async () => {
+                    await this.supabase.from('time_off_requests').update({ status: 'Pending' }).eq('request_id', b.dataset.id);
+                    load('revert-off');
+                });
+            } else {
+                this.renderDepartmentEvents(adminContent);
             }
         };
         load('tutors');
@@ -511,8 +687,52 @@ const App = {
         });
     },
 
+    async renderDepartmentEvents(container) {
+        container.innerHTML = `
+            <form id="dept-event-form" class="card p-3 mb-4">
+                <h3>Create New Department Event</h3>
+                <input type="text" name="name" placeholder="Event Name" class="form-control mb-2" required>
+                <div class="grid grid-2">
+                    <input type="date" name="start" class="form-control mb-2" required>
+                    <input type="date" name="end" class="form-control mb-2" required>
+                </div>
+                <button type="submit" class="btn btn-primary mt-2">Create Event</button>
+            </form>
+            <div id="dept-event-list"></div>
+        `;
+        const load = async () => {
+            console.log("DEBUG: Fetching events for category:", this.currentUser.category);
+            const { data, error } = await this.supabase.from('system_events').select('*').eq('department_category', this.currentUser.category);
+            if (error) console.error("DEBUG: Event fetch error:", error);
+            console.log("DEBUG: Events found:", data);
+            document.getElementById('dept-event-list').innerHTML = `<h3>Current Department Events</h3>` + (data || []).map(e => `
+                <div class="card mb-2 p-2" style="display: flex; justify-content: space-between; align-items: center;">
+                    <strong>${e.name}</strong> (${e.start_date} to ${e.end_date})
+                    <button class="btn btn-sm btn-danger del-dept-event" data-id="${e.event_id}">Delete</button>
+                </div>
+            `).join('');
+            document.querySelectorAll('.del-dept-event').forEach(b => b.onclick = async () => {
+                if (confirm('Delete this department event?')) {
+                    await this.supabase.from('system_events').delete().eq('event_id', b.dataset.id);
+                    load();
+                }
+            });
+        };
+        load();
+        document.getElementById('dept-event-form').onsubmit = async (e) => {
+            e.preventDefault();
+            const fd = new FormData(e.target);
+            const { error } = await this.supabase.rpc('create_department_event', {
+                p_name: fd.get('name'), p_start_date: fd.get('start'), p_end_date: fd.get('end'), 
+                p_event_type: 'Department', p_category: this.currentUser.category
+            });
+            if (error) alert(error.message); else { alert('Created!'); e.target.reset(); load(); }
+        };
+    },
+
     async renderReviewManagement(container) {
         container.innerHTML = `<section class="dashboard-section"><h2>Review Deletion Requests</h2><div id="rm-list">Loading...</div></section>`;
+        
         let query = this.supabase.from('reviews').select('*, tutor:tutor_id!inner(*), student:student_id(*)').eq('deletion_requested', true);
         if (this.currentUser.role === 'Admin') query = query.eq('tutor.category', this.currentUser.category);
 
@@ -520,6 +740,8 @@ const App = {
         if (error) { console.error('RM Error:', error); return; }
 
         const listEl = document.getElementById('rm-list');
+        if (!listEl) return;
+
         listEl.innerHTML = `<table class="user-table"><thead><tr><th>Tutor</th><th>Review</th><th>Action</th></tr></thead>
             <tbody>${(data || []).map(r => `<tr><td>${r.tutor.first_name}</td><td>${r.comment}</td>
                 <td><button class="btn btn-sm btn-danger del-rev" data-id="${r.review_id}">Delete</button>
@@ -648,7 +870,7 @@ const App = {
             e.preventDefault();
             const fd = new FormData(e.target);
             const isRecurring = document.getElementById('is_recurring').checked;
-            const { error } = await this.supabase.rpc('create_system_event', {
+            const { error } = await this.supabase.rpc('create_event_and_cancel_appointments', {
                 p_name: fd.get('name'), p_start_date: fd.get('start'), p_end_date: fd.get('end'), 
                 p_event_type: fd.get('type'), p_is_recurring: isRecurring
             });
@@ -706,6 +928,12 @@ const App = {
                         <div class="booking-form-container mt-4">
                             <input type="date" id="booking-date" class="form-control mb-2">
                             <div id="time-slots-container" class="time-slots-container mt-3"></div>
+                            <div class="form-group mt-3">
+                                <label for="course-select">Select a Course</label>
+                                <select id="course-select" class="form-control" required>
+                                    ${tutor.specializations.map(s => `<option value="${s.course_id}">${s.course_name}</option>`).join('')}
+                                </select>
+                            </div>
                             <button id="confirm-booking-btn" class="btn btn-primary mt-3" disabled>Confirm Appointment</button>
                         </div>
                         <div id="booking-feedback" class="mt-3"></div>
@@ -720,23 +948,55 @@ const App = {
         let selectedSlots = [];
 
         dateInput.onchange = async () => {
-            const selectedDate = new Date(dateInput.value + 'T00:00:00Z');
-            if (!selectedDate) return;
+            const selectedDate = this.toUTCDate(dateInput.value);
+            if (isNaN(selectedDate)) return;
 
             slotsContainer.innerHTML = '<div>Loading available times...</div>';
             confirmBtn.disabled = true;
             selectedSlots = [];
             feedbackEl.innerHTML = '';
 
-            const dayOfWeek = selectedDate.getUTCDay();
+            const selectedDateUTC = new Date(Date.UTC(selectedDate.getUTCFullYear(), selectedDate.getUTCMonth(), selectedDate.getUTCDate()));
+
+            // Check for time off on the selected date
+            const { data: timeOff, error: timeOffError } = await this.supabase
+                .from('time_off_requests')
+                .select('start_date, end_date')
+                .eq('tutor_id', tutor.user_id)
+                .eq('status', 'Approved')
+                .lte('start_date', selectedDateUTC.toISOString().split('T')[0])
+                .gte('end_date', selectedDateUTC.toISOString().split('T')[0]);
+
+            if (timeOff && timeOff.length > 0) {
+                slotsContainer.innerHTML = `<div class="info">Rescheduling is unavailable on this date as the tutor has time off.</div>`;
+                return;
+            }
+
+            // Check for system events on the selected date
+            const { data: events, error: eventError } = await this.supabase
+                .from('system_events')
+                .select('name')
+                .lte('start_date', selectedDateUTC.toISOString().split('T')[0])
+                .gte('end_date', selectedDateUTC.toISOString().split('T')[0]);
+
+            if (eventError) {
+                console.error('Error checking for system events:', eventError);
+            } else if (events && events.length > 0) {
+                slotsContainer.innerHTML = `<div class="info">Rescheduling is unavailable on this date due to the ${events[0].name} event.</div>`;
+                return;
+            }
+
+
+
+            const dayOfWeek = selectedDateUTC.getUTCDay();
             const { data: workingHours, error: whError } = await this.supabase
                 .from('working_hours').select('start_time, end_time').eq('tutor_id', tutor.user_id).eq('day_of_week', dayOfWeek).single();
 
             const { data: appointments, error: apptError } = await this.supabase
                 .from('appointments_enhanced').select('start_time')
                 .eq('tutor_id', tutor.user_id)
-                .gte('start_time', selectedDate.toISOString())
-                .lt('start_time', new Date(selectedDate.getTime() + 24 * 60 * 60 * 1000).toISOString());
+                .gte('start_time', selectedDateUTC.toISOString())
+                .lt('start_time', new Date(selectedDateUTC.getTime() + 24 * 60 * 60 * 1000).toISOString());
 
             if (whError || apptError) {
                 console.error('Error fetching availability:', whError || apptError);
@@ -756,7 +1016,7 @@ const App = {
 
             for (let hour = startHour; hour < endHour; hour++) {
                 for (let minute = 0; minute < 60; minute += 30) {
-                    const slotTime = new Date(selectedDate);
+                    const slotTime = new Date(selectedDateUTC);
                     slotTime.setUTCHours(hour, minute, 0, 0);
                     if (!bookedSlots.has(slotTime.toISOString())) {
                         availableSlots.push(slotTime);
@@ -804,15 +1064,17 @@ const App = {
             confirmBtn.disabled = true;
             feedbackEl.innerHTML = `<div>Booking...</div>`;
 
-            const startTime = new Date(selectedSlots[0].dataset.slot);
-            const lastSlot = new Date(selectedSlots[selectedSlots.length - 1].dataset.slot);
+            const startTime = this.toUTCDate(selectedSlots[0].dataset.slot);
+            const lastSlot = this.toUTCDate(selectedSlots[selectedSlots.length - 1].dataset.slot);
             const endTime = new Date(lastSlot.getTime() + 30 * 60 * 1000);
 
+            const courseId = document.getElementById('course-select').value;
             const { data, error } = await this.supabase.rpc('book_appointment', {
                 p_student_id: this.currentUser.user_id,
                 p_tutor_id: tutor.user_id,
                 p_start_time: startTime.toISOString(),
-                p_end_time: endTime.toISOString()
+                p_end_time: endTime.toISOString(),
+                p_course_id: courseId
             });
 
             if (error) {
@@ -865,12 +1127,90 @@ const App = {
         };
     },
 
+    showReviewEditModal(review, reviewsContainer) {
+        const m = document.getElementById('modal-container');
+        if (!m) return;
+
+        m.innerHTML = `
+            <div class="modal-backdrop">
+                <div class="modal">
+                    <div class="modal-header">
+                        <h3>Edit Your Review</h3>
+                        <button onclick="document.getElementById('modal-container').innerHTML=''">×</button>
+                    </div>
+                    <form id="review-edit-form" class="modal-body">
+                        <div class="form-group">
+                            <label for="rating-edit-select">Rating (1-5)</label>
+                            <select id="rating-edit-select" class="form-control" required>
+                                <option ${review.rating == 5 ? 'selected' : ''} value="5">5 Stars</option>
+                                <option ${review.rating == 4 ? 'selected' : ''} value="4">4 Stars</option>
+                                <option ${review.rating == 3 ? 'selected' : ''} value="3">3 Stars</option>
+                                <option ${review.rating == 2 ? 'selected' : ''} value="2">2 Stars</option>
+                                <option ${review.rating == 1 ? 'selected' : ''} value="1">1 Star</option>
+                            </select>
+                        </div>
+                        <div class="form-group mt-2">
+                            <label for="review-edit-comment">Comment</label>
+                            <textarea id="review-edit-comment" class="form-control" rows="4" required>${review.comment}</textarea>
+                        </div>
+                        <div class="mt-4 d-flex justify-end">
+                            <button type="submit" class="btn btn-primary">Save Changes</button>
+                        </div>
+                    </form>
+                </div>
+            </div>`;
+
+        document.getElementById('review-edit-form').onsubmit = async (e) => {
+            e.preventDefault();
+            const newRating = document.getElementById('rating-edit-select').value;
+            const newComment = document.getElementById('review-edit-comment').value;
+
+            const { error } = await this.supabase
+                .from('reviews')
+                .update({ rating: newRating, comment: newComment, is_edited: true })
+                .eq('review_id', review.review_id);
+
+            if (error) {
+                alert(`Error updating review: ${error.message}`);
+            } else {
+                alert('Review updated successfully!');
+                document.getElementById('modal-container').innerHTML = '';
+                this.renderMyReviews(reviewsContainer);
+            }
+        };
+    },
+
     async showReviewsModal(t) {
         const m = document.getElementById('modal-container');
         if (!m) return;
-        m.innerHTML = `<div class="modal-backdrop"><div class="modal"><div class="modal-header"><h3>Reviews for ${t.first_name}</h3><button onclick="document.getElementById('modal-container').innerHTML=''">×</button></div><div id="m-rev" class="modal-body">Loading...</div></div></div>`;
-        const { data } = await this.supabase.from('reviews').select('*').eq('tutor_id', t.user_id);
-        document.getElementById('m-rev').innerHTML = (data || []).map(r => `<div class="review-card card p-2 mb-2">★ ${r.rating}<p>${r.comment}</p></div>`).join('') || 'No reviews yet.';
+        m.innerHTML = `
+            <div class="modal-backdrop">
+                <div class="modal review-modal">
+                    <div class="modal-header">
+                        <h3>Reviews for ${t.first_name} ${t.last_name}</h3>
+                        <button class="modal-close-btn" onclick="document.getElementById('modal-container').innerHTML=''">×</button>
+                    </div>
+                    <div id="m-rev" class="modal-body review-grid">Loading...</div>
+                </div>
+            </div>
+        `;
+        console.log("DEBUG: Tutor Object:", t);
+        console.log("DEBUG: Querying reviews for tutor_id:", t.user_id);
+        const { data, error } = await this.supabase.from('reviews').select('*').eq('tutor_id', parseInt(t.user_id));
+        if (error) {
+            console.error("Review fetch error:", error);
+        }
+        const revEl = document.getElementById('m-rev');
+        if (!data || data.length === 0) {
+            revEl.innerHTML = '<div class="info">No reviews yet (or none found for ID ' + t.user_id + ').</div>';
+        } else {
+            revEl.innerHTML = data.map(r => `
+                <div class="review-card card p-2">
+                    <div class="rating">★ ${r.rating}</div>
+                    <p class="mb-0">${r.comment}</p>
+                </div>
+            `).join('');
+        }
     },
 
     async showRescheduleModal(appt) {
@@ -904,17 +1244,47 @@ const App = {
         const feedbackEl = document.getElementById('booking-feedback');
 
         dateInput.onchange = async () => {
-            const selectedDate = dateInput.value;
-            if (!selectedDate) return;
+            const selectedDate = this.toUTCDate(dateInput.value);
+            if (isNaN(selectedDate)) return;
 
             slotsContainer.innerHTML = '<div>Loading available times...</div>';
             confirmBtn.disabled = true;
             selectedSlot = null;
             feedbackEl.innerHTML = '';
 
+            const selectedDateUTC = new Date(Date.UTC(selectedDate.getUTCFullYear(), selectedDate.getUTCMonth(), selectedDate.getUTCDate()));
+
+            // Check for time off on the selected date
+            const { data: timeOff, error: timeOffError } = await this.supabase
+                .from('time_off_requests')
+                .select('start_date, end_date')
+                .eq('tutor_id', tutor.user_id)
+                .eq('status', 'Approved')
+                .lte('start_date', selectedDateUTC.toISOString().split('T')[0])
+                .gte('end_date', selectedDateUTC.toISOString().split('T')[0]);
+
+            if (timeOff && timeOff.length > 0) {
+                slotsContainer.innerHTML = `<div class="info">Rescheduling is unavailable on this date as the tutor has time off.</div>`;
+                return;
+            }
+
+            // Check for system events on the selected date
+            const { data: events, error: eventError } = await this.supabase
+                .from('system_events')
+                .select('name')
+                .lte('start_date', selectedDateUTC.toISOString().split('T')[0])
+                .gte('end_date', selectedDateUTC.toISOString().split('T')[0]);
+
+            if (eventError) {
+                console.error('Error checking for system events:', eventError);
+            } else if (events && events.length > 0) {
+                slotsContainer.innerHTML = `<div class="info">Rescheduling is unavailable on this date due to the ${events[0].name} event.</div>`;
+                return;
+            }
+
             const { data: slots, error } = await this.supabase.rpc('get_tutor_availability_slots', {
                 p_tutor_id: appt.tutor_id,
-                p_target_date: selectedDate
+                p_target_date: selectedDateUTC.toISOString().split('T')[0]
             });
 
             if (error) {
@@ -930,10 +1300,10 @@ const App = {
 
             slotsContainer.innerHTML = '';
             slots.forEach(slot => {
-                const slotTime = new Date(slot.available_slot);
+                const slotTime = this.toUTCDate(slot.available_slot);
                 const button = document.createElement('button');
                 button.className = 'btn time-slot-btn';
-                button.textContent = slotTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true });
+                button.textContent = slotTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true, timeZone: 'UTC' });
                 button.dataset.slot = slot.available_slot;
                 
                 button.onclick = () => {
@@ -955,13 +1325,15 @@ const App = {
             confirmBtn.disabled = true;
             feedbackEl.innerHTML = `<div>Rescheduling...</div>`;
 
-            const startTime = new Date(selectedSlot);
+            const startTime = this.toUTCDate(selectedSlot);
             const endTime = new Date(startTime.getTime() + 30 * 60 * 1000);
 
             const { error } = await this.supabase.rpc('reschedule_appointment', {
                 p_appointment_id: appt.appointment_id,
                 p_new_start_time: startTime.toISOString(),
-                p_new_end_time: endTime.toISOString()
+                p_new_end_time: endTime.toISOString(),
+                p_user_id: this.currentUser.user_id,
+                p_role: this.currentUser.role
             });
 
             if (error) {

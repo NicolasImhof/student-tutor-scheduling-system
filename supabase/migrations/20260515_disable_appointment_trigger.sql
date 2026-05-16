@@ -1,0 +1,2 @@
+
+ALTER TABLE appointments DISABLE TRIGGER on_appointment_change_update_enhanced;

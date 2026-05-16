@@ -6,11 +6,17 @@
     --header-bg: #f8f9fa;
     --day-header-bg: #f1f3f5;
     --day-text: #495057;
-    --today-bg: #e9ecef;
+    --today-bg: #dbeafe;
     --event-bg: #007bff;
     --event-text: #ffffff;
     --holiday-bg: #f2a2a2;
     --time-off-bg: #ffc107;
+    --time-slot-height: 50px;
+}
+
+.time-slot {
+    position: relative;
+    border-top: 1px solid var(--calendar-border);
 }
 
 .calendar-container {
@@ -88,8 +94,9 @@
     opacity: 0.4;
 }
 
-.day-cell.today {
-    background-color: var(--today-bg);
+.day-cell.today,
+.day-column.today {
+    box-shadow: inset 0 0 0 2px var(--primary-color);
 }
 
 .day-number {
@@ -149,15 +156,16 @@
     position: relative;
 }
 
+.day-column.today .day-header {
+    background-color: var(--primary-color);
+    color: var(--button-text-color);
+}
+
 .event-block {
-    position: absolute;
-    left: 4px;
-    right: 4px;
     background-color: var(--event-bg);
     color: var(--event-text);
     border-radius: 4px;
     padding: 4px;
     font-size: 0.75rem;
     overflow: hidden;
-    z-index: 1;
 }

@@ -1,0 +1,1 @@
+DELETE FROM appointments_enhanced;
