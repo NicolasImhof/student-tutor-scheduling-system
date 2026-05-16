@@ -124,6 +124,30 @@ const App = {
                 console.log('No active session.');
                 const loginView = document.getElementById('login-view');
                 if (loginView) loginView.classList.remove('hidden');
+        const { data: { session } } = await this.supabase.auth.getSession();
+        if (session && session.user) {
+            const { data: profile, error } = await this.supabase.from('users').select('*').eq('auth_uuid', session.user.id).single();
+            if (error) { 
+                console.error('Profile fetch error:', error); 
+                // It might be a new user signing up, the trigger will create the profile.
+                // Let's wait a bit and retry.
+                setTimeout(() => this.checkSession(), 1000);
+                return; 
+            }
+            if (profile) {
+                if (profile.approval_status !== 'Approved') {
+                    alert('Your account is pending approval.');
+                    this.logout();
+                    return;
+                }
+                this.currentUser = { ...session.user, ...profile };
+                document.getElementById('login-view').classList.add('hidden');
+                document.body.className = `role-${profile.role.toLowerCase().replace(' ', '-')}`;
+                this.renderDashboard();
+            } else {
+                // This case handles the delay between auth user creation and profile trigger execution
+                console.log("Profile not found, will retry...");
+                setTimeout(() => this.checkSession(), 1000); // Retry after a second
             }
         } catch (err) {
             console.error('Session check error:', err);
@@ -309,6 +333,10 @@ const App = {
         
         const startTime = this.toUTCDate(appt.start_time);
         const endTime = this.toUTCDate(appt.end_time);
+        const isReschedulable = this.currentUser.role === 'Tutor' && appt.status !== 'Completed';
+        
+        const startTime = new Date(appt.start_time);
+        const endTime = new Date(appt.end_time);
 
         let detailsHtml = '';
         switch (this.currentUser.role) {
@@ -316,6 +344,7 @@ const App = {
                 detailsHtml = `
                     <p><strong>Tutor:</strong> ${appt.tutor_full_name}</p>
                     <p><strong>Subject:</strong> ${appt.course_name}</p>
+                    <p><strong>Subject:</strong> ${appt.course_name || 'N/A'}</p>
                 `;
                 break;
             case 'Tutor':
@@ -329,6 +358,15 @@ const App = {
                     <p><strong>Tutor:</strong> ${appt.tutor_full_name}</p>
                     <p><strong>Student:</strong> ${appt.student_full_name}</p>
                     <p><strong>Subject:</strong> ${appt.course_name}</p>
+                    <p><strong>Subject:</strong> ${appt.course_name || 'N/A'}</p>
+                `;
+                break;
+            case 'Admin':
+            case 'Super Admin':
+                detailsHtml = `
+                    <p><strong>Tutor:</strong> ${appt.tutor_full_name}</p>
+                    <p><strong>Student:</strong> ${appt.student_full_name}</p>
+                    <p><strong>Subject:</strong> ${appt.course_name || 'N/A'}</p>
                 `;
                 break;
         }
@@ -347,6 +385,12 @@ const App = {
                             ${isReschedulable ? `<button id="reschedule-appt-btn" class="btn btn-secondary ml-2">Reschedule</button>` : ''}
                             ${this.currentUser.role === 'Tutor' && appt.status === 'Scheduled' ? `<button id="complete-appt-btn" class="btn btn-primary ml-2">Mark Completed</button>` : ''}
                         </div>
+                        <p><strong>Date:</strong> ${startTime.toLocaleDateString()}</p>
+                        <p><strong>Time:</strong> ${startTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true })} - ${endTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true })}</p>
+                        <p><strong>Status:</strong> <span class="status-badge">${appt.status}</span></p>
+                        ${detailsHtml}
+                        ${isCancellable ? `<button id="cancel-appt-btn" class="btn btn-danger mt-3">Cancel Appointment</button>` : ''}
+                        ${isReschedulable ? `<button id="reschedule-appt-btn" class="btn btn-secondary mt-3 ml-2">Reschedule</button>` : ''}
                     </div>
                 </div>
             </div>`;

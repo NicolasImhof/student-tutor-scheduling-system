@@ -83,10 +83,14 @@ window.Calendar = {
     async renderWeekView() {
         const viewDate = new Date(this.viewDate.getTime());
         const startOfWeek = new Date(viewDate.setUTCDate(viewDate.getUTCDate() - viewDate.getUTCDay()));
+        // Use local date for calculations
+        const viewDate = new Date(this.viewDate.getFullYear(), this.viewDate.getMonth(), this.viewDate.getDate());
+        const startOfWeek = new Date(viewDate);
+        startOfWeek.setDate(viewDate.getDate() - viewDate.getDay());
 
         const endOfWeek = new Date(startOfWeek);
-        endOfWeek.setUTCDate(startOfWeek.getUTCDate() + 6);
-        endOfWeek.setUTCHours(23, 59, 59, 999);
+        endOfWeek.setDate(startOfWeek.getDate() + 6);
+        endOfWeek.setHours(23, 59, 59, 999);
 
         document.getElementById('view-title').textContent = `${startOfWeek.toLocaleDateString('en-US', { timeZone: 'UTC' })} - ${endOfWeek.toLocaleDateString('en-US', { timeZone: 'UTC' })}`;
         const gridContainer = document.getElementById('calendar-grid-container');
@@ -110,6 +114,18 @@ window.Calendar = {
             
             gridHtml += `<div class="day-column ${isWeekend ? 'disabled' : ''} ${isToday ? 'today' : ''}" data-date="${dateString}">`;
             gridHtml += `<div class="day-header">${date.toLocaleDateString('en-US', { weekday: 'short', timeZone: 'UTC' })} ${date.getUTCDate()}</div>`;
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        for (let i = 0; i < 7; i++) {
+            const date = new Date(startOfWeek);
+            date.setDate(startOfWeek.getDate() + i);
+            const isWeekend = date.getDay() === 0 || date.getDay() === 6;
+            const isToday = date.getTime() === today.getTime();
+            const dateString = `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, '0')}-${date.getDate().toString().padStart(2, '0')}`;
+            
+            gridHtml += `<div class="day-column ${isWeekend ? 'disabled' : ''} ${isToday ? 'today' : ''}" data-date="${dateString}">`;
+            gridHtml += `<div class="day-header">${date.toLocaleDateString('en-US', { weekday: 'short' })} ${date.getDate()}</div>`;
             for (let hour = 0; hour < 24; hour++) {
                 gridHtml += `<div class="time-slot" data-hour="${hour}" style="grid-row: ${hour + 2}"></div>`;
             }
@@ -125,11 +141,11 @@ window.Calendar = {
     },
 
     async renderMonthView() {
-        const firstDay = new Date(Date.UTC(this.viewDate.getUTCFullYear(), this.viewDate.getUTCMonth(), 1));
-        const lastDay = new Date(Date.UTC(this.viewDate.getUTCFullYear(), this.viewDate.getUTCMonth() + 1, 0));
-        lastDay.setUTCHours(23, 59, 59, 999);
+        const firstDay = new Date(this.viewDate.getFullYear(), this.viewDate.getMonth(), 1);
+        const lastDay = new Date(this.viewDate.getFullYear(), this.viewDate.getMonth() + 1, 0);
+        lastDay.setHours(23, 59, 59, 999);
 
-        document.getElementById('view-title').textContent = firstDay.toLocaleString('default', { month: 'long', year: 'numeric', timeZone: 'UTC' });
+        document.getElementById('view-title').textContent = firstDay.toLocaleString('default', { month: 'long', year: 'numeric' });
         const gridContainer = document.getElementById('calendar-grid-container');
         gridContainer.innerHTML = '<div class="calendar-grid-month"></div>';
         const grid = gridContainer.querySelector('.calendar-grid-month');
@@ -137,7 +153,10 @@ window.Calendar = {
         const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
         let gridHtml = days.map(day => `<div class="day-header">${day}</div>`).join('');
 
-        for (let i = 0; i < firstDay.getUTCDay(); i++) gridHtml += '<div class="day-cell other-month"></div>';
+        for (let i = 0; i < firstDay.getDay(); i++) gridHtml += '<div class="day-cell other-month"></div>';
+
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
 
         const today = this.getUTCToday();
         today.setUTCHours(0, 0, 0, 0);
@@ -146,6 +165,10 @@ window.Calendar = {
             const date = new Date(Date.UTC(this.viewDate.getUTCFullYear(), this.viewDate.getUTCMonth(), i));
             const dateString = date.toISOString().split('T')[0];
             const isWeekend = date.getUTCDay() === 0 || date.getUTCDay() === 6;
+        for (let i = 1; i <= lastDay.getDate(); i++) {
+            const date = new Date(this.viewDate.getFullYear(), this.viewDate.getMonth(), i);
+            const dateString = `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, '0')}-${date.getDate().toString().padStart(2, '0')}`;
+            const isWeekend = date.getDay() === 0 || date.getDay() === 6;
             const isToday = date.getTime() === today.getTime();
             gridHtml += `<div class="day-cell ${isWeekend ? 'disabled' : ''} ${isToday ? 'today' : ''}" data-date="${dateString}"><div class="day-number">${i}</div><div class="events-list"></div></div>`;
         }
@@ -171,6 +194,15 @@ window.Calendar = {
         } // Admins and Super Admins see all appointments in the date range.
 
         // 3. Concurrently fetch appointments, system events, and working hours and time-off.
+
+        // 2. Filter appointments based on the current user's role.
+        if (this.currentUser.role === 'Student') {
+            appointmentQuery = appointmentQuery.eq('student_id', this.currentUser.user_id);
+        } else if (this.currentUser.role === 'Tutor') {
+            appointmentQuery = appointmentQuery.eq('tutor_id', this.tutorId || this.currentUser.user_id);
+        } // Admins and Super Admins see all appointments in the date range.
+
+        // 3. Concurrently fetch appointments, system events, and (for week view) working hours.
         const promises = [
             appointmentQuery,
             this.supabase.from('system_events').select('*').gte('start_date', start.toISOString().split('T')[0]).lte('end_date', end.toISOString().split('T')[0])
@@ -189,12 +221,112 @@ window.Calendar = {
             return;
         }
 
+        if (this.view === 'week' && targetTutorId) {
+            promises.push(this.supabase.from('working_hours').select('*').eq('tutor_id', targetTutorId));
+        }
+
+        const [appointmentsRes, systemEventsRes, workingHoursRes] = await Promise.all(promises);
+
+        if (appointmentsRes.error) {
+            console.error("Error fetching appointments:", appointmentsRes.error);
+            return;
+        }
+
         const appointments = appointmentsRes.data || [];
         const systemEvents = systemEventsRes.data || [];
         const workingHours = workingHoursRes ? workingHoursRes.data || [] : [];
         const timeOffRequests = timeOffRes ? timeOffRes.data || [] : [];
 
         // ... (existing code for rendering appointments) ...
+        // 4. Collect all unique student and tutor IDs from the fetched appointments.
+        const userIds = new Set();
+        appointments.forEach(appt => {
+            if (appt.student_id) userIds.add(appt.student_id);
+            if (appt.tutor_id) userIds.add(appt.tutor_id);
+        });
+
+        // 5. Fetch all required user details in a single, secure RPC call.
+        const userMap = new Map();
+        if (userIds.size > 0) {
+            // Supabase RPC expects array parameters in a specific string format: '{val1,val2,val3}'
+            const ids = `{${[...userIds].join(',')}}`;
+            const { data: users, error: usersError } = await this.supabase
+                .rpc('get_users_by_ids', { p_user_ids: ids });
+
+            if (usersError) {
+                console.error("PULL ERROR: Failed to fetch user names.", usersError);
+            } else if (users) {
+                console.log('PULL SUCCESS: Fetched user data:', users);
+                users.forEach(u => userMap.set(u.user_id, u));
+            }
+        }
+
+        try {
+            // 6. Augment appointment objects with full names and correct course name.
+            const finalAppointments = appointments.map(appt => {
+                const student = userMap.get(appt.student_id);
+                const tutor = userMap.get(appt.tutor_id);
+                return {
+                    ...appt,
+                    student_full_name: student ? `${student.first_name} ${student.last_name}` : 'Unknown Student',
+                    tutor_full_name: tutor ? `${tutor.first_name} ${tutor.last_name}` : 'Tutor no longer available',
+                    course_name: appt.course?.course_name || 'N/A'
+                };
+            });
+
+            // Render appointments on the grid...
+            finalAppointments.forEach(appt => {
+                const apptStart = new Date(appt.start_time);
+                const dateStr = `${apptStart.getFullYear()}-${(apptStart.getMonth() + 1).toString().padStart(2, '0')}-${apptStart.getDate().toString().padStart(2, '0')}`;
+                const cell = grid.querySelector(`[data-date="${dateStr}"]`);
+                if (!cell) return;
+
+                if (this.view === 'month') {
+                    const list = cell.querySelector('.events-list');
+                    if (list) {
+                        const eventItem = document.createElement('div');
+                        eventItem.className = `event-item ${appt.status.toLowerCase()}`;
+                        const displayName = this.getAppointmentDisplayName(appt);
+                        eventItem.textContent = displayName;
+                        eventItem.dataset.id = appt.appointment_id;
+                        list.appendChild(eventItem);
+                    }
+                } else { // week view
+                    const apptEnd = new Date(appt.end_time);
+                    const startHour = apptStart.getHours();
+                    const dayColumn = grid.querySelector(`[data-date="${dateStr}"]`);
+
+                    if (dayColumn) {
+                        const startSlot = dayColumn.querySelector(`[data-hour="${startHour}"]`);
+                        if (startSlot) {
+                            const block = document.createElement('div');
+                            block.className = `event-block ${appt.status.toLowerCase()}`;
+                            const duration = (apptEnd.getTime() - apptStart.getTime()) / (1000 * 60 * 60);
+                            block.style.height = `calc(var(--time-slot-height) * ${duration})`;
+                            const startHourLocal = apptStart.getHours().toString().padStart(2, '0');
+                            const startMinuteLocal = apptStart.getMinutes().toString().padStart(2, '0');
+                            const displayName = this.getAppointmentDisplayName(appt);
+                            block.innerHTML = `<strong>${displayName}</strong><br>${startHourLocal}:${startMinuteLocal}`;
+                            block.dataset.id = appt.appointment_id;
+                            startSlot.appendChild(block);
+                        }
+                    }
+                }
+            });
+
+            // Add delegated event listener for appointment clicks
+            grid.addEventListener('click', (e) => {
+                const eventEl = e.target.closest('.event-item, .event-block');
+                if (eventEl && eventEl.dataset.id) {
+                    const clickedAppt = finalAppointments.find(a => a.appointment_id.toString() === eventEl.dataset.id);
+                    if (clickedAppt) {
+                        this.onAppointmentClick(clickedAppt);
+                    }
+                }
+            });
+        } catch (e) {
+            console.error("Error processing or rendering appointments:", e);
+        }
 
         // Render System Events
         systemEvents.forEach(event => {
