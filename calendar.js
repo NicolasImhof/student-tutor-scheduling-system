@@ -84,7 +84,7 @@ window.Calendar = {
         const viewDate = new Date(this.viewDate.getTime());
         const startOfWeek = new Date(viewDate.setUTCDate(viewDate.getUTCDate() - viewDate.getUTCDay()));
         // Use local date for calculations
-        const viewDate = new Date(this.viewDate.getFullYear(), this.viewDate.getMonth(), this.viewDate.getDate());
+
         const startOfWeek = new Date(viewDate);
         startOfWeek.setDate(viewDate.getDate() - viewDate.getDay());
 
