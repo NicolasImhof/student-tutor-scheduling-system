@@ -623,13 +623,12 @@ const App = {
                 });
 
                 list.querySelectorAll('.req-del').forEach(b => b.onclick = async () => {
-                    const reason = prompt('Reason for deletion request:');
-                    if (!reason) return;
+                    const reason = prompt('Reason for deletion request (optional):');
                     
                     const { error } = await this.supabase.from('review_deletion_requests').insert([{
                         review_id: b.dataset.id,
                         requested_by: this.currentUser.user_id,
-                        reason: reason,
+                        reason: reason || '',
                         status: 'Pending'
                     }]);
                     
