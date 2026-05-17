@@ -814,7 +814,7 @@ const App = {
                     listEl.querySelectorAll('.del-u').forEach(b => {
                         b.onclick = () => {
                             this.showConfirmationModal('Are you sure you want to delete this user?', async () => {
-                                await this.supabase.rpc('delete_user', { p_user_id: b.dataset.id });
+                                await this.supabase.rpc('delete_user', { p_user_id: parseInt(b.dataset.id) });
                                 load();
                             });
                         };
@@ -975,7 +975,7 @@ const App = {
             const { data: timeOff, error: timeOffError } = await this.supabase
                 .from('time_off_requests')
                 .select('start_date, end_date')
-                .eq('tutor_id', tutor.user_id)
+                .eq('tutor_id', appt.tutor_id)
                 .eq('status', 'Approved')
                 .lte('start_date', selectedDateUTC.toISOString().split('T')[0])
                 .gte('end_date', selectedDateUTC.toISOString().split('T')[0]);
@@ -1086,8 +1086,7 @@ const App = {
                 p_student_id: this.currentUser.user_id,
                 p_tutor_id: tutor.user_id,
                 p_start_time: startTime.toISOString(),
-                p_end_time: endTime.toISOString(),
-                p_course_id: courseId
+                p_end_time: endTime.toISOString()
             });
 
             if (error) {
