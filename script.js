@@ -1319,123 +1319,152 @@ const App = {
         },
 
         async renderTutorScheduleModal(tutor) {
-        const m = document.getElementById('modal-container');
-        if (!m) return;
+            const m = document.getElementById('modal-container');
+            if (!m) return;
 
-        m.innerHTML = `
-            <div class="modal-backdrop">
-                <div class="modal large">
-                    <div class="modal-header">
-                        <h3>Manage Schedule: ${tutor.full_name}</h3>
-                        <button onclick="document.getElementById('modal-container').innerHTML=''">×</button>
-                    </div>
-                    <div class="modal-body">
-                        <div id="schedule-loading">Loading schedule...</div>
-                        <div id="schedule-container" class="hidden">
-                            <table class="user-table">
-                                <thead>
-                                    <tr>
-                                        <th>Day</th>
-                                        <th>Working?</th>
-                                        <th>Start Time</th>
-                                        <th>End Time</th>
-                                        <th>Action</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="schedule-body"></tbody>
-                            </table>
-                            <div class="mt-4 info">
-                                <p><small>* Changes will automatically cancel any future appointments that fall outside the new hours.</small></p>
+            m.innerHTML = `
+                <div class="modal-backdrop">
+                    <div class="modal large">
+                        <div class="modal-header">
+                            <h3>Manage Schedule: ${tutor.full_name}</h3>
+                            <button onclick="document.getElementById('modal-container').innerHTML=''">×</button>
+                        </div>
+                        <div class="modal-body">
+                            <div id="schedule-loading" class="text-center p-4">Loading schedule...</div>
+                            <div id="schedule-container" class="hidden">
+                                <div class="table-responsive">
+                                    <table class="user-table schedule-table">
+                                        <thead>
+                                            <tr>
+                                                <th>Day</th>
+                                                <th class="text-center">Working?</th>
+                                                <th>Start Time</th>
+                                                <th>End Time</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="schedule-body"></tbody>
+                                    </table>
+                                </div>
+                                <div class="mt-4 info p-2 bg-light border-radius">
+                                    <p><small><strong>Note:</strong> Changes will automatically cancel any future appointments that fall outside the new hours.</small></p>
+                                </div>
+                                <div class="modal-actions mt-4 d-flex justify-end">
+                                    <button id="save-all-schedule" class="btn btn-primary">Save All Changes</button>
+                                    <button class="btn btn-secondary ml-2" onclick="document.getElementById('modal-container').innerHTML=''">Cancel</button>
+                                </div>
                             </div>
                         </div>
                     </div>
-                </div>
-            </div>`;
+                </div>`;
 
-        const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-        const scheduleBody = document.getElementById('schedule-body');
-        const loading = document.getElementById('schedule-loading');
-        const container = document.getElementById('schedule-container');
+            const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+            const scheduleBody = document.getElementById('schedule-body');
+            const loading = document.getElementById('schedule-loading');
+            const container = document.getElementById('schedule-container');
+            const saveAllBtn = document.getElementById('save-all-schedule');
 
-        const loadSchedule = async () => {
-            const { data: schedule, error } = await this.supabase
-                .from('working_hours')
-                .select('*')
-                .eq('tutor_id', tutor.user_id);
+            const loadSchedule = async () => {
+                const { data: schedule, error } = await this.supabase
+                    .from('working_hours')
+                    .select('*')
+                    .eq('tutor_id', tutor.user_id);
 
-            if (error) {
-                scheduleBody.innerHTML = `<tr><td colspan="5" class="error">Error: ${error.message}</td></tr>`;
-                return;
-            }
+                if (error) {
+                    scheduleBody.innerHTML = `<tr><td colspan="4" class="error">Error: ${error.message}</td></tr>`;
+                    return;
+                }
 
-            loading.classList.add('hidden');
-            container.classList.remove('hidden');
+                loading.classList.add('hidden');
+                container.classList.remove('hidden');
 
-            const scheduleMap = new Map((schedule || []).map(s => [s.day_of_week, s]));
+                const scheduleMap = new Map((schedule || []).map(s => [s.day_of_week, s]));
 
-            // We only support Mon-Fri (1-5) as per DB constraint
-            scheduleBody.innerHTML = [1, 2, 3, 4, 5].map(dayNum => {
-                const s = scheduleMap.get(dayNum) || { day_of_week: dayNum, is_working: false, start_time: '09:00:00', end_time: '17:00:00' };
-                return `
-                    <tr data-day="${dayNum}">
-                        <td>${days[dayNum]}</td>
-                        <td>
-                            <input type="checkbox" class="is-working-check" ${s.is_working ? 'checked' : ''}>
-                        </td>
-                        <td>
-                            <input type="time" class="start-time-input form-control" value="${s.start_time}" ${!s.is_working ? 'disabled' : ''}>
-                        </td>
-                        <td>
-                            <input type="time" class="end-time-input form-control" value="${s.end_time}" ${!s.is_working ? 'disabled' : ''}>
-                        </td>
-                        <td>
-                            <button class="btn btn-sm btn-primary save-day-btn">Save</button>
-                        </td>
-                    </tr>
-                `;
-            }).join('');
+                // We only support Mon-Fri (1-5)
+                scheduleBody.innerHTML = [1, 2, 3, 4, 5].map(dayNum => {
+                    const s = scheduleMap.get(dayNum) || { day_of_week: dayNum, is_working: false, start_time: '09:00:00', end_time: '17:00:00' };
+                    return `
+                        <tr class="schedule-row" data-day="${dayNum}">
+                            <td><strong>${days[dayNum]}</strong></td>
+                            <td class="text-center">
+                                <input type="checkbox" class="is-working-check" ${s.is_working ? 'checked' : ''}>
+                            </td>
+                            <td>
+                                <input type="time" class="start-time-input form-control" value="${s.start_time}" ${!s.is_working ? 'disabled' : ''}>
+                            </td>
+                            <td>
+                                <input type="time" class="end-time-input form-control" value="${s.end_time}" ${!s.is_working ? 'disabled' : ''}>
+                            </td>
+                        </tr>
+                    `;
+                }).join('');
 
-            scheduleBody.querySelectorAll('tr').forEach(row => {
-                const check = row.querySelector('.is-working-check');
-                const start = row.querySelector('.start-time-input');
-                const end = row.querySelector('.end-time-input');
-                const save = row.querySelector('.save-day-btn');
+                scheduleBody.querySelectorAll('.is-working-check').forEach(check => {
+                    check.onchange = () => {
+                        const row = check.closest('tr');
+                        row.querySelector('.start-time-input').disabled = !check.checked;
+                        row.querySelector('.end-time-input').disabled = !check.checked;
+                    };
+                });
+            };
 
-                check.onchange = () => {
-                    start.disabled = !check.checked;
-                    end.disabled = !check.checked;
-                };
+            saveAllBtn.onclick = async () => {
+                const newSchedule = Array.from(scheduleBody.querySelectorAll('.schedule-row')).map(row => ({
+                    day_of_week: parseInt(row.dataset.day),
+                    is_working: row.querySelector('.is-working-check').checked,
+                    start_time: row.querySelector('.start-time-input').value,
+                    end_time: row.querySelector('.end-time-input').value
+                }));
 
-                save.onclick = async () => {
-                    save.disabled = true;
-                    save.textContent = '...';
+                saveAllBtn.disabled = true;
+                saveAllBtn.textContent = 'Checking...';
 
-                    const { error: updateError } = await this.supabase.rpc('update_tutor_working_hours', {
-                        p_tutor_id: parseInt(tutor.user_id),
-                        p_day_of_week: parseInt(row.dataset.day),
-                        p_start_time: start.value,
-                        p_end_time: end.value,
-                        p_is_working: check.checked
+                // 1. Check for conflicts
+                const { data: conflictCount, error: checkError } = await this.supabase.rpc('check_tutor_schedule_conflicts', {
+                    p_tutor_id: parseInt(tutor.user_id),
+                    p_schedule: newSchedule
+                });
+
+                if (checkError) {
+                    alert('Error checking for conflicts: ' + checkError.message);
+                    saveAllBtn.disabled = false;
+                    saveAllBtn.textContent = 'Save All Changes';
+                    return;
+                }
+
+                // 2. If conflicts exist, ask for confirmation
+                if (conflictCount > 0) {
+                    const confirmMsg = `Warning: Saving these changes will result in the cancellation of ${conflictCount} future appointment(s). Are you sure you want to proceed?`;
+                    this.showConfirmationModal(confirmMsg, async () => {
+                        await performUpdate(newSchedule);
                     });
+                    saveAllBtn.disabled = false;
+                    saveAllBtn.textContent = 'Save All Changes';
+                } else {
+                    await performUpdate(newSchedule);
+                }
+            };
 
-                    if (updateError) {
-                        alert('Error updating schedule: ' + updateError.message);
-                        save.disabled = false;
-                        save.textContent = 'Save';
-                    } else {
-                        save.textContent = 'Saved!';
-                        setTimeout(() => {
-                            save.textContent = 'Save';
-                            save.disabled = false;
-                        }, 1000);
-                    }
-                };
-            });
-        };
+            const performUpdate = async (scheduleData) => {
+                saveAllBtn.disabled = true;
+                saveAllBtn.textContent = 'Saving...';
 
-        loadSchedule();
+                const { error: updateError } = await this.supabase.rpc('update_tutor_schedule_bulk', {
+                    p_tutor_id: parseInt(tutor.user_id),
+                    p_schedule: scheduleData
+                });
+
+                if (updateError) {
+                    alert('Error updating schedule: ' + updateError.message);
+                    saveAllBtn.disabled = false;
+                    saveAllBtn.textContent = 'Save All Changes';
+                } else {
+                    alert('Schedule updated successfully!');
+                    document.getElementById('modal-container').innerHTML = '';
+                }
+            };
+
+            loadSchedule();
         },
-
         async showRescheduleModal(appt) {
         const m = document.getElementById('modal-container');
         if (!m) return;

@@ -312,6 +312,55 @@ footer {
     padding-right: 0.5rem;
 }
 
+/* --- Tutor Schedule Management Styles --- */
+.modal.large {
+    max-width: 800px;
+    width: 95%;
+}
+
+.schedule-table th, .schedule-table td {
+    padding: 10px 15px;
+    vertical-align: middle;
+}
+
+.schedule-table .is-working-check {
+    width: 20px;
+    height: 20px;
+    cursor: pointer;
+}
+
+.schedule-table .form-control {
+    padding: 6px 10px;
+}
+
+.schedule-table tr.schedule-row:hover {
+    background-color: var(--hover-bg-color);
+}
+
+.text-center {
+    text-align: center;
+}
+
+.table-responsive {
+    overflow-x: auto;
+}
+
+.bg-light {
+    background-color: #f8f9fa !important;
+}
+
+.border-radius {
+    border-radius: 4px;
+}
+
+.justify-end {
+    justify-content: flex-end;
+}
+
+.ml-2 {
+    margin-left: 0.5rem;
+}
+
 /* =====================================================================================
    REVIEW STYLES
    ===================================================================================== */
