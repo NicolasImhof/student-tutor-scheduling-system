@@ -235,36 +235,7 @@ window.Calendar = {
 
         try {
             // 6. Augment appointment objects with full names and correct course name.
-            // AND Expand recurring appointments.
-            const expandedAppointments = [];
-            appointments.forEach(appt => {
-                expandedAppointments.push(appt);
-                if (appt.is_recurring) {
-                    const start = new Date(appt.start_time);
-                    const end = new Date(appt.end_time);
-                    // Add instances for 5 years forward
-                    for (let year = 1; year <= 5; year++) {
-                        const nextStart = new Date(start);
-                        nextStart.setUTCFullYear(nextStart.getUTCFullYear() + year);
-                        const nextEnd = new Date(end);
-                        nextEnd.setUTCFullYear(nextEnd.getUTCFullYear() + year);
-                        
-                        // Check if this appointment falls within the currently viewed month/week
-                        if (nextStart >= start && nextStart <= end) { // Simplified check for now
-                             // We should check against the `start` and `end` arguments of `fetchAllEvents`
-                        }
-                        
-                        expandedAppointments.push({
-                            ...appt,
-                            start_time: nextStart.toISOString(),
-                            end_time: nextEnd.toISOString(),
-                            appointment_id: appt.appointment_id + (year * 10000) // Hack to avoid collisions
-                        });
-                    }
-                }
-            });
-
-            const finalAppointments = expandedAppointments.map(appt => {
+            const finalAppointments = appointments.map(appt => {
                 const student = userMap.get(appt.student_id);
                 const tutor = userMap.get(appt.tutor_id);
                 return {
