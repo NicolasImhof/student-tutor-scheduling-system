@@ -269,18 +269,23 @@ window.Calendar = {
                     const dayColumn = grid.querySelector(`[data-date="${dateStr}"]`);
 
                     if (dayColumn) {
+                        const startHour = apptStart.getHours();
                         const startSlot = dayColumn.querySelector(`[data-hour="${startHour}"]`);
                         if (startSlot) {
                             const block = document.createElement('div');
                             block.className = `event-block ${appt.status.toLowerCase()}`;
-                            const duration = (apptEnd.getTime() - apptStart.getTime()) / (1000 * 60 * 60);
-                            block.style.height = `calc(var(--time-slot-height) * ${duration})`;
                             
-                            // Use local time for display to match user's expectation
-                            const startHourDisp = apptStart.getHours().toString().padStart(2, '0');
-                            const startMinuteDisp = apptStart.getMinutes().toString().padStart(2, '0');
+                            const durationInHours = (apptEnd.getTime() - apptStart.getTime()) / (1000 * 60 * 60);
+                            const startMinutes = apptStart.getMinutes();
+                            
+                            // Calculate position and size based on CSS variables
+                            block.style.height = `calc(var(--time-slot-height) * ${durationInHours})`;
+                            block.style.top = `calc(var(--time-slot-height) * (${startMinutes} / 60))`;
+                            block.style.position = 'absolute';
+                            block.style.width = '100%';
+                            
                             const displayName = this.getAppointmentDisplayName(appt);
-                            block.innerHTML = `<strong>${displayName}</strong><br>${startHourDisp}:${startMinuteDisp}`;
+                            block.innerHTML = `<strong>${displayName}</strong>`;
                             block.dataset.id = appt.appointment_id;
                             startSlot.appendChild(block);
                         }

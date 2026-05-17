@@ -596,8 +596,23 @@ const App = {
                 });
 
                 list.querySelectorAll('.req-del').forEach(b => b.onclick = async () => {
-                    await this.supabase.from('reviews').update({ deletion_requested: true }).eq('review_id', b.dataset.id);
-                    alert('Requested!'); this.renderMyReviews(container);
+                    const reason = prompt('Reason for deletion request:');
+                    if (!reason) return;
+                    
+                    const { error } = await this.supabase.from('review_deletion_requests').insert([{
+                        review_id: b.dataset.id,
+                        requested_by: this.currentUser.user_id,
+                        reason: reason,
+                        status: 'Pending'
+                    }]);
+                    
+                    if (error) {
+                        alert('Error submitting request: ' + error.message);
+                    } else {
+                        await this.supabase.from('reviews').update({ deletion_requested: true }).eq('review_id', b.dataset.id);
+                        alert('Request submitted successfully!');
+                        this.renderMyReviews(container);
+                    }
                 });
             }
         } catch (error) {
@@ -671,10 +686,19 @@ const App = {
                 adminContent.innerHTML = `<table class="user-table"><thead><tr><th>Tutor</th><th>Dates</th><th>Status</th><th>Action</th></tr></thead>
                     <tbody>${(data || []).map(r => `
                         <tr><td>${r.tutor.first_name}</td><td>${r.start_date} to ${r.end_date}</td><td>${r.status}</td>
-                        <td>${r.status === 'Pending' ? `<button class="btn btn-sm btn-primary app-off" data-id="${r.request_id}">Approve</button>` : ''}</td></tr>
+                        <td>
+                            ${r.status === 'Pending' ? `
+                                <button class="btn btn-sm btn-primary app-off" data-id="${r.request_id}">Approve</button>
+                                <button class="btn btn-sm btn-danger rej-off" data-id="${r.request_id}">Deny</button>
+                            ` : ''}
+                        </td></tr>
                     `).join('')}</tbody></table>`;
                 adminContent.querySelectorAll('.app-off').forEach(b => b.onclick = async () => {
                     await this.supabase.from('time_off_requests').update({ status: 'Approved' }).eq('request_id', b.dataset.id);
+                    load('timeoff');
+                });
+                adminContent.querySelectorAll('.rej-off').forEach(b => b.onclick = async () => {
+                    await this.supabase.from('time_off_requests').update({ status: 'Denied' }).eq('request_id', b.dataset.id);
                     load('timeoff');
                 });
             } else if (tab === 'revert-off') {
@@ -1045,7 +1069,7 @@ const App = {
             const { data: appointments, error: apptError } = await this.supabase
                 .from('appointments_enhanced').select('start_time')
                 .eq('tutor_id', tutor.user_id)
-                .neq('status', 'Cancelled')
+                .neq('status', 'Canceled')
                 .gte('start_time', selectedDateUTC.toISOString())
                 .lt('start_time', new Date(selectedDateUTC.getTime() + 24 * 60 * 60 * 1000).toISOString());
 
