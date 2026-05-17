@@ -935,10 +935,6 @@ const App = {
                         <input type="date" name="end" class="form-control mb-2" required>
                     </div>
                     <select name="type" class="form-control mb-2"><option>Holiday</option><option>Closure</option></select>
-                    <div class="form-group form-check" style="display: flex; align-items: center;">
-                        <input type="checkbox" name="is_recurring" id="is_recurring" class="form-check-input" style="margin-right: 10px;">
-                        <label for="is_recurring" class="form-check-label">Is Recurring</label>
-                    </div>
                     <button type="submit" class="btn btn-primary mt-2">Create Event</button>
                 </form>
                 <div id="event-list"></div>
@@ -951,7 +947,7 @@ const App = {
             listEl.innerHTML = `<h3>Existing Events</h3>` + (data || []).map(e => `
                 <div class="card mb-2 p-2" style="display: flex; justify-content: space-between; align-items: center;">
                     <div>
-                        <strong>${e.name}</strong> (${e.start_date} to ${e.end_date}) ${e.is_recurring ? '<span class="badge badge-secondary">Recurring</span>' : ''}
+                        <strong>${e.name}</strong> (${e.start_date} to ${e.end_date})
                     </div>
                     <button class="btn btn-sm btn-danger del-event" data-id="${e.event_id}">Delete</button>
                 </div>
@@ -970,10 +966,9 @@ const App = {
         document.getElementById('event-form').onsubmit = async (e) => {
             e.preventDefault();
             const fd = new FormData(e.target);
-            const isRecurring = document.getElementById('is_recurring').checked;
             const { error } = await this.supabase.rpc('create_event_and_cancel_appointments', {
                 p_name: fd.get('name'), p_start_date: fd.get('start'), p_end_date: fd.get('end'), 
-                p_event_type: fd.get('type'), p_is_recurring: isRecurring
+                p_event_type: fd.get('type')
             });
             if (error) alert(error.message); else { alert('Created!'); e.target.reset(); load(); }
         };
