@@ -705,8 +705,11 @@ const App = {
         const load = async (tab) => { const adminContent = document.getElementById("admin-content"); if (!adminContent) return; if (tab === "tutors") {
                 const query = isSuper ? this.supabase.from('users').select('*').eq('role', 'Tutor') : this.supabase.from('users').select('*').eq('role', 'Tutor').eq('category', this.currentUser.category);
                 const { data } = await query;
-                adminContent.innerHTML = `<table class="user-table"><thead><tr><th>Name</th><th>Email</th><th>Status</th></tr></thead>
-                    <tbody>${(data || []).map(t => `<tr><td>${t.first_name} ${t.last_name}</td><td>${t.email}</td><td>${t.approval_status}</td></tr>`).join('')}</tbody></table>`;
+                adminContent.innerHTML = `<table class="user-table"><thead><tr><th>Name</th><th>Email</th><th>Status</th><th>Actions</th></tr></thead>
+                    <tbody>${(data || []).map(t => `<tr><td>${t.first_name} ${t.last_name}</td><td>${t.email}</td><td>${t.approval_status}</td><td><button class="btn btn-sm btn-secondary manage-schedule-btn" data-id="${t.user_id}" data-name="${t.first_name} ${t.last_name}">Schedule</button></td></tr>`).join('')}</tbody></table>`;
+                adminContent.querySelectorAll('.manage-schedule-btn').forEach(b => b.onclick = () => {
+                    this.renderTutorScheduleModal({ user_id: b.dataset.id, full_name: b.dataset.name });
+                });
             } else if (tab === 'timeoff') {
                 const query = isSuper ? this.supabase.from('time_off_requests').select('*, tutor:tutor_id(*)') : this.supabase.from('time_off_requests').select('*, tutor:tutor_id!inner(*)').eq('tutor.category', this.currentUser.category);
                 const { data } = await query;
@@ -1312,10 +1315,128 @@ const App = {
                     <p class="mb-0">${r.comment}</p>
                 </div>
             `).join('');
-        }
-    },
+        };
+        },
 
-    async showRescheduleModal(appt) {
+        async renderTutorScheduleModal(tutor) {
+        const m = document.getElementById('modal-container');
+        if (!m) return;
+
+        m.innerHTML = `
+            <div class="modal-backdrop">
+                <div class="modal large">
+                    <div class="modal-header">
+                        <h3>Manage Schedule: ${tutor.full_name}</h3>
+                        <button onclick="document.getElementById('modal-container').innerHTML=''">×</button>
+                    </div>
+                    <div class="modal-body">
+                        <div id="schedule-loading">Loading schedule...</div>
+                        <div id="schedule-container" class="hidden">
+                            <table class="user-table">
+                                <thead>
+                                    <tr>
+                                        <th>Day</th>
+                                        <th>Working?</th>
+                                        <th>Start Time</th>
+                                        <th>End Time</th>
+                                        <th>Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="schedule-body"></tbody>
+                            </table>
+                            <div class="mt-4 info">
+                                <p><small>* Changes will automatically cancel any future appointments that fall outside the new hours.</small></p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>`;
+
+        const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+        const scheduleBody = document.getElementById('schedule-body');
+        const loading = document.getElementById('schedule-loading');
+        const container = document.getElementById('schedule-container');
+
+        const loadSchedule = async () => {
+            const { data: schedule, error } = await this.supabase
+                .from('working_hours')
+                .select('*')
+                .eq('tutor_id', tutor.user_id);
+
+            if (error) {
+                scheduleBody.innerHTML = `<tr><td colspan="5" class="error">Error: ${error.message}</td></tr>`;
+                return;
+            }
+
+            loading.classList.add('hidden');
+            container.classList.remove('hidden');
+
+            const scheduleMap = new Map((schedule || []).map(s => [s.day_of_week, s]));
+
+            // We only support Mon-Fri (1-5) as per DB constraint
+            scheduleBody.innerHTML = [1, 2, 3, 4, 5].map(dayNum => {
+                const s = scheduleMap.get(dayNum) || { day_of_week: dayNum, is_working: false, start_time: '09:00:00', end_time: '17:00:00' };
+                return `
+                    <tr data-day="${dayNum}">
+                        <td>${days[dayNum]}</td>
+                        <td>
+                            <input type="checkbox" class="is-working-check" ${s.is_working ? 'checked' : ''}>
+                        </td>
+                        <td>
+                            <input type="time" class="start-time-input form-control" value="${s.start_time}" ${!s.is_working ? 'disabled' : ''}>
+                        </td>
+                        <td>
+                            <input type="time" class="end-time-input form-control" value="${s.end_time}" ${!s.is_working ? 'disabled' : ''}>
+                        </td>
+                        <td>
+                            <button class="btn btn-sm btn-primary save-day-btn">Save</button>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+
+            scheduleBody.querySelectorAll('tr').forEach(row => {
+                const check = row.querySelector('.is-working-check');
+                const start = row.querySelector('.start-time-input');
+                const end = row.querySelector('.end-time-input');
+                const save = row.querySelector('.save-day-btn');
+
+                check.onchange = () => {
+                    start.disabled = !check.checked;
+                    end.disabled = !check.checked;
+                };
+
+                save.onclick = async () => {
+                    save.disabled = true;
+                    save.textContent = '...';
+
+                    const { error: updateError } = await this.supabase.rpc('update_tutor_working_hours', {
+                        p_tutor_id: parseInt(tutor.user_id),
+                        p_day_of_week: parseInt(row.dataset.day),
+                        p_start_time: start.value,
+                        p_end_time: end.value,
+                        p_is_working: check.checked
+                    });
+
+                    if (updateError) {
+                        alert('Error updating schedule: ' + updateError.message);
+                        save.disabled = false;
+                        save.textContent = 'Save';
+                    } else {
+                        save.textContent = 'Saved!';
+                        setTimeout(() => {
+                            save.textContent = 'Save';
+                            save.disabled = false;
+                        }, 1000);
+                    }
+                };
+            });
+        };
+
+        loadSchedule();
+        },
+
+        async showRescheduleModal(appt) {
         const m = document.getElementById('modal-container');
         if (!m) return;
 
