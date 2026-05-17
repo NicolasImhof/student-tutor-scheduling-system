@@ -1175,7 +1175,8 @@ const App = {
                 p_student_id: this.currentUser.user_id,
                 p_tutor_id: tutor.user_id,
                 p_start_time: startTime.toISOString(),
-                p_end_time: endTime.toISOString()
+                p_end_time: endTime.toISOString(),
+                p_course_id: parseInt(courseId)
             });
 
             if (error) {
