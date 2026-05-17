@@ -288,31 +288,58 @@ const App = {
 
         m.innerHTML = `<div class="modal-backdrop"><div class="modal"><div class="modal-body">Loading details...</div></div></div>`;
 
-        // The appointment object from the calendar is minimal. Fetch all the necessary details.
-        const [apptRes, studentRes, courseRes] = await Promise.all([
-            this.supabase.from('appointments_enhanced').select('*').eq('appointment_id', appointment.appointment_id).single(),
-            this.supabase.rpc('get_users_by_ids', { p_user_ids: [appointment.student_id] }),
-            this.supabase.from('courses').select('course_name').eq('course_id', appointment.course_id).single()
-        ]);
+        if (!appointment || !appointment.appointment_id) {
+            console.error("Invalid appointment object provided to modal");
+            m.innerHTML = `<div class="modal-backdrop"><div class="modal"><div class="modal-body error">Invalid appointment selected.</div><button onclick="document.getElementById('modal-container').innerHTML=''">Close</button></div></div>`;
+            return;
+        }
 
-        if (apptRes.error || studentRes.error || courseRes.error || !apptRes.data) {
-            console.error("Failed to fetch all appointment details:", apptRes.error || studentRes.error || courseRes.error);
+        // Fetch the full appointment data first to get reliable IDs
+        const { data: appt, error: apptError } = await this.supabase
+            .from('appointments_enhanced')
+            .select('*')
+            .eq('appointment_id', appointment.appointment_id)
+            .single();
+
+        if (apptError || !appt) {
+            console.error("Failed to fetch appointment details:", apptError);
             m.innerHTML = `<div class="modal-backdrop"><div class="modal"><div class="modal-body error">Failed to load appointment details.</div><button onclick="document.getElementById('modal-container').innerHTML=''">Close</button></div></div>`;
             return;
         }
+
+        // Prepare detail fetches based on available IDs
+        const promises = [];
         
-        const appt = apptRes.data;
-        const student = studentRes.data[0];
-        appt.student_full_name = student ? `${student.first_name} ${student.last_name}` : 'Unknown Student';
-        appt.course_name = courseRes.data ? courseRes.data.course_name : 'N/A';
-        
-        // We also need the tutor's name
-        const { data: tutor, error: tutorError } = await this.supabase.rpc('get_users_by_ids', { p_user_ids: [appt.tutor_id] });
-        if (tutorError || !tutor || tutor.length === 0) {
-            appt.tutor_full_name = 'Tutor no longer available';
+        // Fetch student name
+        if (appt.student_id) {
+            promises.push(this.supabase.rpc('get_users_by_ids', { p_user_ids: [parseInt(appt.student_id)] }).then(res => ({ type: 'student', data: res.data?.[0], error: res.error })));
         } else {
-            appt.tutor_full_name = `${tutor[0].first_name} ${tutor[0].last_name}`;
+            promises.push(Promise.resolve({ type: 'student', data: null }));
         }
+
+        // Fetch tutor name
+        if (appt.tutor_id) {
+            promises.push(this.supabase.rpc('get_users_by_ids', { p_user_ids: [parseInt(appt.tutor_id)] }).then(res => ({ type: 'tutor', data: res.data?.[0], error: res.error })));
+        } else {
+            promises.push(Promise.resolve({ type: 'tutor', data: null }));
+        }
+
+        // Fetch course name
+        if (appt.course_id) {
+            promises.push(this.supabase.from('courses').select('course_name').eq('course_id', appt.course_id).single().then(res => ({ type: 'course', data: res.data, error: res.error })));
+        } else {
+            promises.push(Promise.resolve({ type: 'course', data: null }));
+        }
+
+        const results = await Promise.all(promises);
+        
+        const student = results.find(r => r.type === 'student')?.data;
+        const tutor = results.find(r => r.type === 'tutor')?.data;
+        const course = results.find(r => r.type === 'course')?.data;
+
+        appt.student_full_name = student ? `${student.first_name} ${student.last_name}` : 'Unknown Student';
+        appt.tutor_full_name = tutor ? `${tutor.first_name} ${tutor.last_name}` : 'Tutor no longer available';
+        appt.course_name = course ? course.course_name : 'N/A';
 
         const isCancellable = appt.status === 'Scheduled' && (this.currentUser.role === 'Student' || this.currentUser.role === 'Tutor');
         const isReschedulable = (this.currentUser.role === 'Tutor' || this.currentUser.role === 'Student') && appt.status === 'Scheduled';
