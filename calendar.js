@@ -265,18 +265,18 @@ window.Calendar = {
                     }
                 } else { // week view
                     const apptEnd = this.toUTCDate(appt.end_time);
-                    const startHour = apptStart.getUTCHours();
+                    const dateStr = apptStart.toISOString().split('T')[0];
                     const dayColumn = grid.querySelector(`[data-date="${dateStr}"]`);
 
                     if (dayColumn) {
-                        const startHour = apptStart.getHours();
+                        const startHour = apptStart.getUTCHours();
                         const startSlot = dayColumn.querySelector(`[data-hour="${startHour}"]`);
                         if (startSlot) {
                             const block = document.createElement('div');
                             block.className = `event-block ${appt.status.toLowerCase()}`;
                             
                             const durationInHours = (apptEnd.getTime() - apptStart.getTime()) / (1000 * 60 * 60);
-                            const startMinutes = apptStart.getMinutes();
+                            const startMinutes = apptStart.getUTCMinutes();
                             
                             // Calculate position and size based on CSS variables
                             block.style.height = `calc(var(--time-slot-height) * ${durationInHours})`;
