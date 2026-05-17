@@ -166,6 +166,7 @@ const App = {
         }
         nav.innerHTML = links;
         document.getElementById('user-name').textContent = `${this.currentUser.first_name} ${this.currentUser.last_name}`;
+        document.body.className = 'role-' + this.currentUser.role.toLowerCase().replace(' ', '-');
         console.log("DEBUG: Dashboard currentUser:", this.currentUser);
         console.log("DEBUG: Dashboard category:", this.currentUser.category);
         this.setupDashboardEventListeners();
