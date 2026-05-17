@@ -174,30 +174,14 @@ window.Calendar = {
 
 
         // 3. Concurrently fetch appointments, system events, and working hours and time-off.
-
-        // 2. Filter appointments based on the current user's role.
-        if (this.currentUser.role === 'Student') {
-            appointmentQuery = appointmentQuery.eq('student_id', this.currentUser.user_id);
-        } else if (this.currentUser.role === 'Tutor') {
-            appointmentQuery = appointmentQuery.eq('tutor_id', this.tutorId || this.currentUser.user_id);
-        } // Admins and Super Admins see all appointments in the date range.
-
-        // 3. Concurrently fetch appointments, system events, and (for week view) working hours.
         const promises = [
             appointmentQuery,
-            this.supabase.from('system_events').select('*').gte('start_date', start.toISOString().split('T')[0]).lte('end_date', end.toISOString().split('T')[0])
+            this.supabase.from('system_events').select('*').gte('start_date', start.toISOString().split('T')[0]).lte('end_date', end.toISOString().split('T')[0]),
+            this.supabase.from('working_hours').select('*'),
+            this.supabase.from('time_off_requests').select('*').eq('status', 'Approved')
         ];
 
-
-
         const [appointmentsRes, systemEventsRes, workingHoursRes, timeOffRes] = await Promise.all(promises);
-
-        if (appointmentsRes.error) {
-            console.error("Error fetching appointments:", appointmentsRes.error);
-            return;
-        }
-
-
 
         if (appointmentsRes.error) {
             console.error("Error fetching appointments:", appointmentsRes.error);
@@ -220,7 +204,6 @@ window.Calendar = {
         // 5. Fetch all required user details in a single, secure RPC call.
         const userMap = new Map();
         if (userIds.size > 0) {
-            // Supabase RPC expects array parameters in a specific string format: '{val1,val2,val3}'
             const ids = `{${[...userIds].join(',')}}`;
             const { data: users, error: usersError } = await this.supabase
                 .rpc('get_users_by_ids', { p_user_ids: ids });
@@ -278,7 +261,6 @@ window.Calendar = {
                             const durationInHours = (apptEnd.getTime() - apptStart.getTime()) / (1000 * 60 * 60);
                             const startMinutes = apptStart.getUTCMinutes();
                             
-                            // Calculate position and size based on CSS variables
                             block.style.height = `calc(var(--time-slot-height) * ${durationInHours})`;
                             block.style.top = `calc(var(--time-slot-height) * (${startMinutes} / 60))`;
                             block.style.position = 'absolute';
@@ -330,8 +312,9 @@ window.Calendar = {
             }
         });
 
-        // Render Time Off Requests
-        timeOffRequests.forEach(request => {
+        // Render Time Off Requests (only for current tutor if viewing their schedule)
+        const tutorTimeOff = timeOffRequests.filter(req => req.tutor_id === (this.tutorId || this.currentUser.user_id));
+        tutorTimeOff.forEach(request => {
             const reqStart = this.toUTCDate(request.start_date);
             const reqEnd = this.toUTCDate(request.end_date);
             for (let d = new Date(reqStart); d <= reqEnd; d.setUTCDate(d.getUTCDate() + 1)) {
@@ -341,17 +324,41 @@ window.Calendar = {
                     cell.classList.add('time-off-event', 'disabled');
                     if (this.view === 'month') {
                         const list = cell.querySelector('.events-list');
-                        if (list) list.innerHTML += `<div class="event-item time-off-label">Time Off</div>`;
+                        if (list) list.innerHTML += `<div class="event-item time-off-label" style="background-color: yellow; color: black;">Time Off</div>`;
                     } else {
                         const label = document.createElement('div');
                         label.className = 'event-block system-event-week time-off-label';
                         label.textContent = 'Time Off';
                         label.style.gridRow = '2 / span 1';
+                        label.style.backgroundColor = 'yellow';
+                        label.style.color = 'black';
                         cell.appendChild(label);
                     }
                 }
             }
         });
+
+        // Render Working Hours
+        if (this.view === 'week') {
+            const tutorWorkingHours = workingHours.filter(wh => wh.tutor_id === (this.tutorId || this.currentUser.user_id));
+            tutorWorkingHours.forEach(wh => {
+                // Find column for this day of week (Monday=1, Sunday=0)
+                const dayOffset = wh.day_of_week === 0 ? 6 : wh.day_of_week - 1;
+                const date = new Date(start);
+                date.setUTCDate(start.getUTCDate() + dayOffset);
+                const dateStr = date.toISOString().split('T')[0];
+                const column = grid.querySelector(`[data-date="${dateStr}"]`);
+                
+                if (column && wh.is_working) {
+                    const startHour = parseInt(wh.start_time.split(':')[0]);
+                    const endHour = parseInt(wh.end_time.split(':')[0]);
+                    for (let h = startHour; h < endHour; h++) {
+                        const slot = column.querySelector(`[data-hour="${h}"]`);
+                        if (slot) slot.classList.add('working-hour');
+                    }
+                }
+            });
+        }
 
 
     },
