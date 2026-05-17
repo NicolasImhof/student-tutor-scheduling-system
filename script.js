@@ -746,28 +746,63 @@ const App = {
     async renderReviewManagement(container) {
         container.innerHTML = `<section class="dashboard-section"><h2>Review Deletion Requests</h2><div id="rm-list">Loading...</div></section>`;
         
-        let query = this.supabase.from('reviews').select('*, tutor:tutor_id!inner(*), student:student_id(*)').eq('deletion_requested', true);
-        if (this.currentUser.role === 'Admin') query = query.eq('tutor.category', this.currentUser.category);
+        // Fetch pending deletion requests
+        let { data, error } = await this.supabase
+            .from('review_deletion_requests')
+            .select('*, review:review_id(*, tutor:tutor_id(*), student:student_id(*))')
+            .eq('status', 'Pending');
 
-        const { data, error } = await query;
         if (error) { console.error('RM Error:', error); return; }
+
+        // If Admin, filter by department category
+        if (this.currentUser.role === 'Admin') {
+            data = data.filter(r => r.review && r.review.tutor && r.review.tutor.category === this.currentUser.category);
+        }
 
         const listEl = document.getElementById('rm-list');
         if (!listEl) return;
 
-        listEl.innerHTML = `<table class="user-table"><thead><tr><th>Tutor</th><th>Review</th><th>Action</th></tr></thead>
-            <tbody>${(data || []).map(r => `<tr><td>${r.tutor.first_name}</td><td>${r.comment}</td>
-                <td><button class="btn btn-sm btn-danger del-rev" data-id="${r.review_id}">Delete</button>
-                    <button class="btn btn-sm btn-secondary rej-rev" data-id="${r.review_id}">Reject</button></td></tr>`).join('')}</tbody></table>`;
+        if (!data || data.length === 0) {
+            listEl.innerHTML = '<div class="info">No pending review deletion requests.</div>';
+            return;
+        }
+
+        listEl.innerHTML = `<table class="user-table"><thead><tr><th>Tutor</th><th>Review</th><th>Reason</th><th>Action</th></tr></thead>
+            <tbody>${data.map(r => `<tr>
+                <td>${r.review.tutor.first_name} ${r.review.tutor.last_name}</td>
+                <td>${r.review.comment}</td>
+                <td>${r.reason}</td>
+                <td>
+                    <button class="btn btn-sm btn-danger del-rev" data-id="${r.review_id}" data-request-id="${r.request_id}">Approve Delete</button>
+                    <button class="btn btn-sm btn-secondary rej-rev" data-id="${r.review_id}" data-request-id="${r.request_id}">Reject Request</button>
+                </td></tr>`).join('')}</tbody></table>`;
 
         listEl.querySelectorAll('.del-rev').forEach(b => b.onclick = async () => {
-            if(confirm('Delete review?')) {
-                await this.supabase.from('reviews').delete().eq('review_id', b.dataset.id);
-                this.renderReviewManagement(container);
+            if(confirm('Approve deletion and delete review?')) {
+                const { error: delError } = await this.supabase.from('reviews').delete().eq('review_id', b.dataset.id);
+                if (delError) {
+                    alert('Error deleting review: ' + delError.message);
+                } else {
+                    await this.supabase.from('review_deletion_requests').update({ 
+                        status: 'Approved', 
+                        reviewed_by: this.currentUser.user_id,
+                        reviewed_at: new Date().toISOString()
+                    }).eq('request_id', b.dataset.requestId);
+                    this.renderReviewManagement(container);
+                }
             }
         });
         listEl.querySelectorAll('.rej-rev').forEach(b => b.onclick = async () => {
+            // Update request status
+            await this.supabase.from('review_deletion_requests').update({ 
+                status: 'Denied',
+                reviewed_by: this.currentUser.user_id,
+                reviewed_at: new Date().toISOString()
+            }).eq('request_id', b.dataset.requestId);
+            
+            // Reset review flag
             await this.supabase.from('reviews').update({ deletion_requested: false }).eq('review_id', b.dataset.id);
+            
             this.renderReviewManagement(container);
         });
     },
@@ -975,13 +1010,13 @@ const App = {
             const { data: timeOff, error: timeOffError } = await this.supabase
                 .from('time_off_requests')
                 .select('start_date, end_date')
-                .eq('tutor_id', appt.tutor_id)
+                .eq('tutor_id', tutor.user_id)
                 .eq('status', 'Approved')
                 .lte('start_date', selectedDateUTC.toISOString().split('T')[0])
                 .gte('end_date', selectedDateUTC.toISOString().split('T')[0]);
 
             if (timeOff && timeOff.length > 0) {
-                slotsContainer.innerHTML = `<div class="info">Rescheduling is unavailable on this date as the tutor has time off.</div>`;
+                slotsContainer.innerHTML = `<div class="info">Booking is unavailable on this date as the tutor has time off.</div>`;
                 return;
             }
 
@@ -995,19 +1030,22 @@ const App = {
             if (eventError) {
                 console.error('Error checking for system events:', eventError);
             } else if (events && events.length > 0) {
-                slotsContainer.innerHTML = `<div class="info">Rescheduling is unavailable on this date due to the ${events[0].name} event.</div>`;
+                slotsContainer.innerHTML = `<div class="info">Booking is unavailable on this date due to the ${events[0].name} event.</div>`;
                 return;
             }
 
 
 
             const dayOfWeek = selectedDateUTC.getUTCDay();
-            const { data: workingHours, error: whError } = await this.supabase
-                .from('working_hours').select('start_time, end_time').eq('tutor_id', tutor.user_id).eq('day_of_week', dayOfWeek).single();
+            const { data: workingHoursResponse, error: whError } = await this.supabase
+                .from('working_hours').select('start_time, end_time').eq('tutor_id', tutor.user_id).eq('day_of_week', dayOfWeek);
+
+            const workingHours = workingHoursResponse?.[0];
 
             const { data: appointments, error: apptError } = await this.supabase
                 .from('appointments_enhanced').select('start_time')
                 .eq('tutor_id', tutor.user_id)
+                .neq('status', 'Cancelled')
                 .gte('start_time', selectedDateUTC.toISOString())
                 .lt('start_time', new Date(selectedDateUTC.getTime() + 24 * 60 * 60 * 1000).toISOString());
 
@@ -1022,7 +1060,7 @@ const App = {
                 return;
             }
 
-            const bookedSlots = new Set(appointments.map(a => new Date(a.start_time).toISOString()));
+            const bookedSlots = new Set((appointments || []).map(a => this.toUTCDate(a.start_time).toISOString()));
             const availableSlots = [];
             const [startHour] = workingHours.start_time.split(':').map(Number);
             const [endHour] = workingHours.end_time.split(':').map(Number);
@@ -1270,7 +1308,7 @@ const App = {
             const { data: timeOff, error: timeOffError } = await this.supabase
                 .from('time_off_requests')
                 .select('start_date, end_date')
-                .eq('tutor_id', tutor.user_id)
+                .eq('tutor_id', appt.tutor_id)
                 .eq('status', 'Approved')
                 .lte('start_date', selectedDateUTC.toISOString().split('T')[0])
                 .gte('end_date', selectedDateUTC.toISOString().split('T')[0]);

@@ -130,11 +130,11 @@ window.Calendar = {
     },
 
     async renderMonthView() {
-        const firstDay = new Date(this.viewDate.getFullYear(), this.viewDate.getMonth(), 1);
-        const lastDay = new Date(this.viewDate.getFullYear(), this.viewDate.getMonth() + 1, 0);
-        lastDay.setHours(23, 59, 59, 999);
+        const firstDay = new Date(Date.UTC(this.viewDate.getUTCFullYear(), this.viewDate.getUTCMonth(), 1));
+        const lastDay = new Date(Date.UTC(this.viewDate.getUTCFullYear(), this.viewDate.getUTCMonth() + 1, 0));
+        lastDay.setUTCHours(23, 59, 59, 999);
 
-        document.getElementById('view-title').textContent = firstDay.toLocaleString('default', { month: 'long', year: 'numeric' });
+        document.getElementById('view-title').textContent = firstDay.toLocaleString('default', { month: 'long', year: 'numeric', timeZone: 'UTC' });
         const gridContainer = document.getElementById('calendar-grid-container');
         gridContainer.innerHTML = '<div class="calendar-grid-month"></div>';
         const grid = gridContainer.querySelector('.calendar-grid-month');
@@ -248,8 +248,8 @@ window.Calendar = {
 
             // Render appointments on the grid...
             finalAppointments.forEach(appt => {
-                const apptStart = new Date(appt.start_time);
-                const dateStr = `${apptStart.getFullYear()}-${(apptStart.getMonth() + 1).toString().padStart(2, '0')}-${apptStart.getDate().toString().padStart(2, '0')}`;
+                const apptStart = this.toUTCDate(appt.start_time);
+            const dateStr = apptStart.toISOString().split('T')[0];;
                 const cell = grid.querySelector(`[data-date="${dateStr}"]`);
                 if (!cell) return;
 
@@ -264,8 +264,8 @@ window.Calendar = {
                         list.appendChild(eventItem);
                     }
                 } else { // week view
-                    const apptEnd = new Date(appt.end_time);
-                    const startHour = apptStart.getHours();
+                    const apptEnd = this.toUTCDate(appt.end_time);
+                    const startHour = apptStart.getUTCHours();
                     const dayColumn = grid.querySelector(`[data-date="${dateStr}"]`);
 
                     if (dayColumn) {
@@ -275,10 +275,12 @@ window.Calendar = {
                             block.className = `event-block ${appt.status.toLowerCase()}`;
                             const duration = (apptEnd.getTime() - apptStart.getTime()) / (1000 * 60 * 60);
                             block.style.height = `calc(var(--time-slot-height) * ${duration})`;
-                            const startHourLocal = apptStart.getHours().toString().padStart(2, '0');
-                            const startMinuteLocal = apptStart.getMinutes().toString().padStart(2, '0');
+                            
+                            // Use local time for display to match user's expectation
+                            const startHourDisp = apptStart.getHours().toString().padStart(2, '0');
+                            const startMinuteDisp = apptStart.getMinutes().toString().padStart(2, '0');
                             const displayName = this.getAppointmentDisplayName(appt);
-                            block.innerHTML = `<strong>${displayName}</strong><br>${startHourLocal}:${startMinuteLocal}`;
+                            block.innerHTML = `<strong>${displayName}</strong><br>${startHourDisp}:${startMinuteDisp}`;
                             block.dataset.id = appt.appointment_id;
                             startSlot.appendChild(block);
                         }
